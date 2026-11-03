@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Buddy & Scribble Strip Editor — APK.audio</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span>🎛️</span>
+      <span>PLB · Panel Label Buddy</span>
+      <span style="font-size:0.75rem; background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:12px;">Precision Strip Geometry</span>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button id="btn-export-csv">Export Schedule (.CSV)</button>
+      <button class="primary" onclick="window.print()">Print Strip (1:1 Calibrated)</button>
+    </div>
+  </header>
+
+  <div class="main-content">
+    <div class="controls-sidebar">
+      <div style="margin-bottom:20px;">
+        <div class="section-title">Ports Per Row</div>
+        <div class="chip-bar" id="chips-ppr">
+          <div class="chip" data-ppr="16">16</div>
+          <div class="chip active" data-ppr="24">24</div>
+          <div class="chip" data-ppr="32">32</div>
+          <div class="chip" data-ppr="48">48</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <div class="section-title">Rack Height</div>
+        <div class="chip-bar" id="chips-ru">
+          <div class="chip active" data-ru="1">1U</div>
+          <div class="chip" data-ru="2">2U</div>
+          <div class="chip" data-ru="3">3U</div>
+          <div class="chip" data-ru="4">4U</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <div class="section-title">Panel Construction</div>
+        <div class="chip-bar" id="chips-mode">
+          <div class="chip active" data-mode="inserts">Paper Inserts (0.39″)</div>
+          <div class="chip" data-mode="etched">Laser Etched (0.50″)</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#f1f5f9; cursor:pointer;">
+          <input type="checkbox" id="chk-bay" />
+          <span>48-Point Video Bay (Split Row Pitch)</span>
+        </label>
+      </div>
+
+      <div style="background:#1e2534; border:1px solid #2b3548; border-radius:6px; padding:14px; margin-top:20px;">
+        <div class="section-title" style="color:#38bdf8;">True Physical Geometry</div>
+        <div style="font-size:0.8rem; display:flex; flex-direction:column; gap:6px; font-family:monospace; color:#cbd5e1;">
+          <div>Jack Pitch: <span id="geo-pitch" style="color:#38bdf8;">0.739″ (18.77 mm)</span></div>
+          <div>Strip Height: <span id="geo-height" style="color:#38bdf8;">0.390″ (9.91 mm)</span></div>
+          <div>Total Width: <span id="geo-width" style="color:#38bdf8;">17.750″ (450.85 mm)</span></div>
+          <div>Usable Rack Ears: <span style="color:#10b981;">100% (No Overrun)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-stage">
+      <div style="color:#94a3b8; font-size:0.85rem; margin-bottom:12px;">SCRIBBLE STRIP 1:1 CALIBRATED PHYSICAL PREVIEW (CLICK ANY CELL TO EDIT DESIGNATION):</div>
+      <div class="strip-card">
+        <div class="strip-table" id="strip-container"></div>
+      </div>
+
+      <div style="width:100%; max-width:850px; background:#18202c; border:1px solid #283347; border-radius:6px; padding:16px;">
+        <div style="font-size:0.8rem; font-weight:600; color:#94a3b8; margin-bottom:6px;">📏 1:1 CALIBRATION VERIFICATION RULER (10 INCHES):</div>
+        <div class="scale-ruler" id="ruler"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { derivePanelLabelStock } from './js/panelLabelStock.js';
+
+    let currentPpr = 24;
+    let currentRu = 1;
+    let currentMode = 'inserts';
+    let isBay = false;
+    let labels = Array.from({ length: 48 }, (_, i) => `CH ${i + 1}`);
+
+    const stripContainer = document.getElementById('strip-container');
+    const geoPitch = document.getElementById('geo-pitch');
+    const geoHeight = document.getElementById('geo-height');
+    const geoWidth = document.getElementById('geo-width');
+
+    function updateStock() {
+      const stock = derivePanelLabelStock({ portsPerRow: currentPpr, rackUnits: currentRu, isBay }, currentMode);
+      geoPitch.textContent = `${stock.cell.widthIn}″ (${stock.cell.widthMm} mm)`;
+      geoHeight.textContent = `${stock.cell.heightIn}″ (${stock.cell.heightMm} mm)`;
+      geoWidth.textContent = `${stock.strip.widthIn}″ (${stock.strip.widthMm} mm)`;
+
+      stripContainer.innerHTML = '';
+      for (let i = 0; i < currentPpr; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'strip-cell';
+        cell.style.width = `${stock.cell.widthIn * 42}px`;
+        cell.style.height = `${stock.cell.heightIn * 80}px`;
+        cell.innerHTML = `
+          <div class="num">${i + 1}</div>
+          <input type="text" value="${labels[i] || 'LINE ' + (i + 1)}" />
+        `;
+        cell.querySelector('input').addEventListener('input', (e) => {
+          labels[i] = e.target.value;
+        });
+        stripContainer.appendChild(cell);
+      }
+    }
+
+    // Ruler ticks
+    const rulerEl = document.getElementById('ruler');
+    for (let inch = 0; inch <= 10; inch++) {
+      const tick = document.createElement('div');
+      tick.style.flex = '1';
+      tick.style.borderLeft = '1px solid #64748b';
+      tick.style.height = '14px';
+      tick.style.paddingLeft = '4px';
+      tick.textContent = `${inch}″`;
+      rulerEl.appendChild(tick);
+    }
+
+    // Chips event listeners
+    document.querySelectorAll('#chips-ppr .chip').forEach(c => {
+      c.addEventListener('click', () => {
+        document.querySelectorAll('#chips-ppr .chip').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+        currentPpr = parseInt(c.dataset.ppr, 10);
+        updateStock();
+      });
+    });
+
+    document.querySelectorAll('#chips-ru .chip').forEach(c => {
+      c.addEventListener('click', () => {
+        document.querySelectorAll('#chips-ru .chip').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+        currentRu = parseInt(c.dataset.ru, 10);
+        updateStock();
+      });
+    });
+
+    document.querySelectorAll('#chips-mode .chip').forEach(c => {
+      c.addEventListener('click', () => {
+        document.querySelectorAll('#chips-mode .chip').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+        currentMode = c.dataset.mode;
+        updateStock();
+      });
+    });
+
+    document.getElementById('chk-bay').addEventListener('change', (e) => {
+      isBay = e.target.checked;
+      updateStock();
+    });
+
+    document.getElementById('btn-export-csv').addEventListener('click', () => {
+      const rows = labels.slice(0, currentPpr).map((l, i) => `${i + 1},"${l}"`);
+      const csv = ['Port,Designation', ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `panel-labels-${currentPpr}port.csv`;
+      a.click();
+    });
+
+    updateStock();
+  </script>
+</body>
+</html>

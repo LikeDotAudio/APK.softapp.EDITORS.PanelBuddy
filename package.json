@@ -1,0 +1,21 @@
+{
+  "name": "panel-label-buddy",
+  "version": "1.0.0",
+  "description": "Panel Buddy and Scribble Strip Designer on APK.audio",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "keywords": [
+    "audio",
+    "patchbay",
+    "panel",
+    "labels",
+    "scribble",
+    "avp",
+    "bantam",
+    "rack"
+  ],
+  "author": "Anthony Kuzub",
+  "license": "MIT"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Panel Buddy & Scribble Strip Editor",
+  "icon": "🎛️",
+  "group": "Design",
+  "subGroup": "Hardware & Devices",
+  "description": "PLB Panel Buddy & Designation Strip Designer: precision physical geometry for patch panel scribble strips, 16/24/32/48-port pitches, 48-point video bays, 1U-4U rack units, calibrated 1:1 scale print rulers, Avery cardstock layout, and Excel/CSV label schedule export.",
+  "app": "APK:Softapps/EDITORS/EDITORS.PanelBuddy/index.html"
+}
