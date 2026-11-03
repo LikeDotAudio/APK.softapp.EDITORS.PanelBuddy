@@ -3,176 +3,319 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel Buddy & Scribble Strip Editor — APK.audio</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Panel Buddy & Scribble Strip Editor · Standalone Block Editor</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <style>
+    .panel-container {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      grid-template-rows: 1fr 240px;
+      height: calc(100vh - 40px);
+      overflow: hidden;
+    }
+
+    .panel-sidebar {
+      grid-column: 1;
+      grid-row: 1;
+      border-right: 1px solid var(--osc-border-default);
+      background: var(--osc-bg-surface);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 14px;
+      overflow-y: auto;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--osc-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .preview-panel {
+      grid-column: 2;
+      grid-row: 1;
+      background: var(--osc-bg-base);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .preview-header {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--osc-border-default);
+      background: var(--osc-bg-surface);
+    }
+
+    .preview-stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow: auto;
+      background: radial-gradient(circle at 50% 50%, #151F38 0%, #080C16 100%);
+    }
+
+    .preview-stage svg {
+      max-width: 95%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      border-radius: 4px;
+    }
+
+    .ruler-wrap {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
+    .ruler {
+      position: relative;
+      width: 254px; /* exactly 10 inches at 25.4px/in or 100mm scaled */
+      height: 14px;
+      background: var(--osc-bg-input);
+      border: 1px solid var(--osc-border-default);
+      border-radius: 2px;
+    }
+
+    .tick {
+      position: absolute;
+      top: 0;
+      width: 1px;
+      height: 6px;
+      background: var(--osc-border-light);
+    }
+
+    .tick.major {
+      height: 12px;
+      background: var(--osc-accent-primary);
+    }
+
+    .ruler-cap {
+      font-size: 10px;
+      color: var(--osc-text-muted);
+      margin-top: 4px;
+      font-family: var(--font-mono);
+    }
+
+    .data-grid-panel {
+      grid-column: 1 / 3;
+      grid-row: 2;
+      border-top: 1px solid var(--osc-border-default);
+      background: var(--osc-bg-surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .data-grid-header {
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--osc-border-default);
+      background: var(--osc-bg-surface-hover);
+    }
+
+    .data-table-container {
+      flex: 1;
+      overflow: auto;
+    }
+
+    table.port-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    table.port-table th {
+      position: sticky;
+      top: 0;
+      background: var(--osc-bg-input);
+      color: var(--osc-text-muted);
+      padding: 6px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--osc-border-default);
+      font-weight: 600;
+      z-index: 2;
+    }
+
+    table.port-table td {
+      padding: 2px 4px;
+      border-bottom: 1px solid var(--osc-border-default);
+    }
+
+    .cell-input {
+      width: 100%;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--osc-text-primary);
+      padding: 4px 6px;
+      font-size: 11px;
+      border-radius: 2px;
+      font-family: inherit;
+    }
+
+    .cell-input:focus {
+      background: var(--osc-bg-input);
+      border-color: var(--osc-accent-primary);
+      outline: none;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .col-idx {
+      width: 50px;
+    }
+
+    .col-actions {
+      width: 45px;
+      text-align: center;
+    }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      .preview-stage, .preview-stage * {
+        visibility: visible;
+      }
+      .preview-stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+      }
+    }
+  </style>
 </head>
-<body>
-  <header>
-    <div class="brand">
-      <span>🎛️</span>
-      <span>PLB · Panel Label Buddy</span>
-      <span style="font-size:0.75rem; background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:12px;">Precision Strip Geometry</span>
+<body class="theme-deep-horizon">
+  <header class="app-window-header">
+    <div class="window-title-group">
+      <span class="window-dot"></span>
+      <span class="window-title">Panel Label Buddy</span>
+      <span class="window-pill" id="block-tag">STANDALONE BLOCK EDITOR</span>
     </div>
-    <div style="display:flex; gap:10px;">
-      <button id="btn-export-csv">Export Schedule (.CSV)</button>
-      <button class="primary" onclick="window.print()">Print Strip (1:1 Calibrated)</button>
+    <div class="window-actions">
+      <button class="btn btn-secondary" id="btn-sync-discovered" title="Load live panel from Discovered Project">
+        <span class="btn-icon">⚡</span> Discovered
+      </button>
+      <button class="btn btn-secondary" id="btn-open" title="Open block JSON">
+        <span class="btn-icon">📂</span> Open
+      </button>
+      <button class="btn btn-primary" id="btn-save" title="Save & Return modified block to caller">
+        <span class="btn-icon">💾</span> Save & Return
+      </button>
+      <button class="btn btn-icon" id="btn-close" title="Close Editor">✕</button>
     </div>
   </header>
 
-  <div class="main-content">
-    <div class="controls-sidebar">
-      <div style="margin-bottom:20px;">
-        <div class="section-title">Ports Per Row</div>
-        <div class="chip-bar" id="chips-ppr">
-          <div class="chip" data-ppr="16">16</div>
-          <div class="chip active" data-ppr="24">24</div>
-          <div class="chip" data-ppr="32">32</div>
-          <div class="chip" data-ppr="48">48</div>
-        </div>
+  <div class="panel-container">
+    <aside class="panel-sidebar">
+      <div class="form-group">
+        <label for="input-panel-name">Panel Name / Tag</label>
+        <input type="text" id="input-panel-name" class="input" value="PP-AUDIO-01">
       </div>
 
-      <div style="margin-bottom:20px;">
-        <div class="section-title">Rack Height</div>
-        <div class="chip-bar" id="chips-ru">
-          <div class="chip active" data-ru="1">1U</div>
-          <div class="chip" data-ru="2">2U</div>
-          <div class="chip" data-ru="3">3U</div>
-          <div class="chip" data-ru="4">4U</div>
-        </div>
+      <div class="form-group">
+        <label for="input-panel-room">Location / Room Path</label>
+        <input type="text" id="input-panel-room" class="input" value="MDF / RACK-01">
       </div>
 
-      <div style="margin-bottom:20px;">
-        <div class="section-title">Panel Construction</div>
+      <div class="form-group">
+        <label>Ports Per Row</label>
+        <div class="chip-bar" id="chips-ppr"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Rack Units (RU)</label>
+        <div class="chip-bar" id="chips-ru"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Scribble Strip Style</label>
         <div class="chip-bar" id="chips-mode">
           <div class="chip active" data-mode="inserts">Paper Inserts (0.39″)</div>
           <div class="chip" data-mode="etched">Laser Etched (0.50″)</div>
         </div>
       </div>
 
-      <div style="margin-bottom:20px;">
-        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#f1f5f9; cursor:pointer;">
-          <input type="checkbox" id="chk-bay" />
-          <span>48-Point Video Bay (Split Row Pitch)</span>
+      <div class="form-group">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="chk-bay">
+          <span>48-Point Video Bay (Mid-Split Pitch)</span>
         </label>
       </div>
 
-      <div style="background:#1e2534; border:1px solid #2b3548; border-radius:6px; padding:14px; margin-top:20px;">
-        <div class="section-title" style="color:#38bdf8;">True Physical Geometry</div>
-        <div style="font-size:0.8rem; display:flex; flex-direction:column; gap:6px; font-family:monospace; color:#cbd5e1;">
-          <div>Jack Pitch: <span id="geo-pitch" style="color:#38bdf8;">0.739″ (18.77 mm)</span></div>
-          <div>Strip Height: <span id="geo-height" style="color:#38bdf8;">0.390″ (9.91 mm)</span></div>
-          <div>Total Width: <span id="geo-width" style="color:#38bdf8;">17.750″ (450.85 mm)</span></div>
-          <div>Usable Rack Ears: <span style="color:#10b981;">100% (No Overrun)</span></div>
+      <div style="background:var(--osc-bg-input); border:1px solid var(--osc-border-default); border-radius:4px; padding:10px; margin-top:auto;">
+        <div style="font-size:10px; font-weight:700; color:var(--osc-accent-primary); text-transform:uppercase; margin-bottom:4px;">Geometry Readout</div>
+        <div id="geometry-summary" style="font-size:11px; font-family:var(--font-mono); color:var(--osc-text-muted); line-height:1.4;">
+          24-port · 1U · cell 0.73″ × 0.39″ · 1:1
         </div>
       </div>
-    </div>
+    </aside>
 
-    <div class="preview-stage">
-      <div style="color:#94a3b8; font-size:0.85rem; margin-bottom:12px;">SCRIBBLE STRIP 1:1 CALIBRATED PHYSICAL PREVIEW (CLICK ANY CELL TO EDIT DESIGNATION):</div>
-      <div class="strip-card">
-        <div class="strip-table" id="strip-container"></div>
+    <main class="preview-panel">
+      <div class="preview-header">
+        <span style="font-size:12px; font-weight:600; color:var(--osc-text-primary);">
+          Physical Strip Preview (1:1 Calibrated Scale)
+        </span>
+        <button class="btn btn-primary btn-sm" id="btn-print">
+          <span class="btn-icon">🖨</span> Print 1:1 Scale
+        </button>
       </div>
+      <div class="preview-stage" id="preview-stage"></div>
+    </main>
 
-      <div style="width:100%; max-width:850px; background:#18202c; border:1px solid #283347; border-radius:6px; padding:16px;">
-        <div style="font-size:0.8rem; font-weight:600; color:#94a3b8; margin-bottom:6px;">📏 1:1 CALIBRATION VERIFICATION RULER (10 INCHES):</div>
-        <div class="scale-ruler" id="ruler"></div>
+    <section class="data-grid-panel">
+      <div class="data-grid-header">
+        <span style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--osc-text-muted);">
+          Panel Port List (Live Editable)
+        </span>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="btn btn-secondary btn-sm" id="btn-generate-ports">Fill Grid to Density</button>
+          <button class="btn btn-secondary btn-sm" id="btn-export-csv">Export CSV</button>
+          <button class="btn btn-primary btn-sm" id="btn-add-port">+ Add Port</button>
+        </div>
       </div>
-    </div>
+      <div class="data-table-container">
+        <table class="port-table">
+          <thead>
+            <tr>
+              <th class="col-idx">Port #</th>
+              <th>Port Label</th>
+              <th>Destination / Endpoint</th>
+              <th>Signal Type</th>
+              <th>Connector</th>
+              <th class="col-actions">Act</th>
+            </tr>
+          </thead>
+          <tbody id="port-table-body"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
-  <script type="module">
-    import { derivePanelLabelStock } from './js/panelLabelStock.js';
-
-    let currentPpr = 24;
-    let currentRu = 1;
-    let currentMode = 'inserts';
-    let isBay = false;
-    let labels = Array.from({ length: 48 }, (_, i) => `CH ${i + 1}`);
-
-    const stripContainer = document.getElementById('strip-container');
-    const geoPitch = document.getElementById('geo-pitch');
-    const geoHeight = document.getElementById('geo-height');
-    const geoWidth = document.getElementById('geo-width');
-
-    function updateStock() {
-      const stock = derivePanelLabelStock({ portsPerRow: currentPpr, rackUnits: currentRu, isBay }, currentMode);
-      geoPitch.textContent = `${stock.cell.widthIn}″ (${stock.cell.widthMm} mm)`;
-      geoHeight.textContent = `${stock.cell.heightIn}″ (${stock.cell.heightMm} mm)`;
-      geoWidth.textContent = `${stock.strip.widthIn}″ (${stock.strip.widthMm} mm)`;
-
-      stripContainer.innerHTML = '';
-      for (let i = 0; i < currentPpr; i++) {
-        const cell = document.createElement('div');
-        cell.className = 'strip-cell';
-        cell.style.width = `${stock.cell.widthIn * 42}px`;
-        cell.style.height = `${stock.cell.heightIn * 80}px`;
-        cell.innerHTML = `
-          <div class="num">${i + 1}</div>
-          <input type="text" value="${labels[i] || 'LINE ' + (i + 1)}" />
-        `;
-        cell.querySelector('input').addEventListener('input', (e) => {
-          labels[i] = e.target.value;
-        });
-        stripContainer.appendChild(cell);
-      }
-    }
-
-    // Ruler ticks
-    const rulerEl = document.getElementById('ruler');
-    for (let inch = 0; inch <= 10; inch++) {
-      const tick = document.createElement('div');
-      tick.style.flex = '1';
-      tick.style.borderLeft = '1px solid #64748b';
-      tick.style.height = '14px';
-      tick.style.paddingLeft = '4px';
-      tick.textContent = `${inch}″`;
-      rulerEl.appendChild(tick);
-    }
-
-    // Chips event listeners
-    document.querySelectorAll('#chips-ppr .chip').forEach(c => {
-      c.addEventListener('click', () => {
-        document.querySelectorAll('#chips-ppr .chip').forEach(x => x.classList.remove('active'));
-        c.classList.add('active');
-        currentPpr = parseInt(c.dataset.ppr, 10);
-        updateStock();
-      });
-    });
-
-    document.querySelectorAll('#chips-ru .chip').forEach(c => {
-      c.addEventListener('click', () => {
-        document.querySelectorAll('#chips-ru .chip').forEach(x => x.classList.remove('active'));
-        c.classList.add('active');
-        currentRu = parseInt(c.dataset.ru, 10);
-        updateStock();
-      });
-    });
-
-    document.querySelectorAll('#chips-mode .chip').forEach(c => {
-      c.addEventListener('click', () => {
-        document.querySelectorAll('#chips-mode .chip').forEach(x => x.classList.remove('active'));
-        c.classList.add('active');
-        currentMode = c.dataset.mode;
-        updateStock();
-      });
-    });
-
-    document.getElementById('chk-bay').addEventListener('change', (e) => {
-      isBay = e.target.checked;
-      updateStock();
-    });
-
-    document.getElementById('btn-export-csv').addEventListener('click', () => {
-      const rows = labels.slice(0, currentPpr).map((l, i) => `${i + 1},"${l}"`);
-      const csv = ['Port,Designation', ...rows].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `panel-labels-${currentPpr}port.csv`;
-      a.click();
-    });
-
-    updateStock();
-  </script>
+  <script type="module" src="./js/panelBuddyApp.js"></script>
 </body>
 </html>
