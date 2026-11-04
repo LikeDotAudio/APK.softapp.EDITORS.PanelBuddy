@@ -10,6 +10,13 @@ import {
 import { buildPanelLabelStripSvg } from '../js/panelLabels.js';
 import { CAD_CONNECTOR_CATALOG, getConnectorMeta } from '../js/cadConnectorSymbols.js';
 import { renderCadPanelSvg } from '../js/cadPanelVisualizer.js';
+import {
+  LABEL_MECHANICAL_PRESETS,
+  computePortGeometry,
+  calculateFitFontSize,
+  renderMechanicalLabelStripSvg,
+  generatePrintableSheetHtml,
+} from '../js/patchLabelGeometryEngine.js';
 
 test('Panel Label Stock Derivation', () => {
   const stock24 = derivePanelLabelStock({ portsPerRow: 24, rackUnits: 1, isBay: false });
@@ -124,4 +131,80 @@ test('Panel Port Shuffling, Reversing and Drag Re-ordering Logic', () => {
   shiftedLeft.push(first);
   assert.equal(shiftedLeft[0].label, 'CH_2');
   assert.equal(shiftedLeft[3].label, 'CH_1');
+});
+
+test('Mechanical Label Geometry Engine: Port Pitch, Datum Offset, Auto-fit & Calibration', () => {
+  // Test 1: Preset catalogs
+  assert.ok(LABEL_MECHANICAL_PRESETS.length >= 6);
+  const data24 = LABEL_MECHANICAL_PRESETS.find(p => p.id === 'data_24p_slidein');
+  assert.ok(data24, '24P Slide-in preset must exist');
+  assert.equal(data24.pitchMm, 17.5);
+  assert.equal(data24.datumMm, 13.75);
+
+  // Test 2: Mathematical port pitch & datum coordinate formula X_n = X_0 + n*P
+  const port0 = computePortGeometry(data24, 0);
+  assert.equal(port0.centerX, 13.75);
+  assert.equal(port0.cellWidth, 16.5); // 17.5 - 1.0mm micro-margin
+
+  const port1 = computePortGeometry(data24, 1);
+  assert.equal(port1.centerX, 13.75 + 17.5); // 31.25mm
+
+  const port23 = computePortGeometry(data24, 23);
+  assert.equal(port23.centerX, 13.75 + 23 * 17.5); // 416.25mm
+
+  // Test 3: Modular Keystone Blocks (4 blocks of 6 ports with gap)
+  const keystone = LABEL_MECHANICAL_PRESETS.find(p => p.id === 'keystone_modular_4x6');
+  assert.ok(keystone);
+  const kPort0 = computePortGeometry(keystone, 0);
+  assert.equal(kPort0.blockIndex, 0);
+  assert.equal(kPort0.posInBlock, 0);
+  assert.equal(kPort0.centerX, 10.75);
+
+  const kPort6 = computePortGeometry(keystone, 6);
+  assert.equal(kPort6.blockIndex, 1);
+  assert.equal(kPort6.posInBlock, 0);
+  // block 1 starts after block 0 span (6 * 16.5 + 4.8 gap)
+  assert.ok(kPort6.centerX > kPort0.centerX + 100);
+
+  // Test 4: Dynamic font auto-scaling to prevent bleed
+  const shortTextFit = calculateFitFontSize('MIC 1', 16.5, 7.5, 4.5);
+  assert.equal(shortTextFit, 7.5);
+
+  const veryLongTextFit = calculateFitFontSize('LONG-CIRCUIT-NAME-FROM-MDF-RACK-01', 16.5, 7.5, 4.5);
+  assert.ok(veryLongTextFit < 7.5);
+  assert.ok(veryLongTextFit >= 4.5);
+
+  // Test 5: Mechanical SVG Strip Rendering
+  const panel = {
+    name: 'PP-MDF-DATA-01',
+    ports: Array.from({ length: 24 }, (_, i) => ({
+      portNumber: i + 1,
+      label: `DATA-${i + 1}`,
+      endpoint: `OFFICE-W${i + 1}`,
+      signal: 'Gigabit PoE+'
+    }))
+  };
+
+  const svg = renderMechanicalLabelStripSvg(panel, data24, {
+    highContrast: true,
+    showDimensions: true,
+    showRuler: true
+  });
+
+  assert.ok(svg.includes('454mm'));
+  assert.ok(svg.includes('width="430"'));
+  assert.ok(svg.includes('50.0mm')); // Calibration check ruler
+  assert.ok(svg.includes('CALIBRATION CHECK'));
+  assert.ok(svg.includes('DATA-1'));
+  assert.ok(svg.includes('OFFICE-W1'));
+  assert.ok(svg.includes('X₀=13.75mm'));
+  assert.ok(svg.includes('P=17.5mm'));
+
+  // Test 6: Multi-strip Printable Sheet Layout
+  const html = generatePrintableSheetHtml(panel, data24, { pageSize: 'letter', copies: 3 });
+  assert.ok(html.includes('Physical Printer Scale Verification Guide'));
+  assert.ok(html.includes('STRIP COPY #1'));
+  assert.ok(html.includes('STRIP COPY #2'));
+  assert.ok(html.includes('STRIP COPY #3'));
+  assert.ok(html.includes('11in 8.5in'));
 });

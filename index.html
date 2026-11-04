@@ -180,6 +180,112 @@
       border-top: 2px solid var(--osc-accent-primary);
     }
 
+    /* Label Maker Studio Modal */
+    .labelmaker-modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .labelmaker-modal-box {
+      width: 1100px;
+      max-width: 95vw;
+      height: 90vh;
+      background: var(--osc-bg-surface);
+      border: 1px solid var(--osc-border-default);
+      border-radius: 6px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .labelmaker-header {
+      height: 44px;
+      padding: 0 16px;
+      background: var(--osc-bg-surface-hover);
+      border-bottom: 1px solid var(--osc-border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .labelmaker-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      overflow: hidden;
+    }
+
+    .labelmaker-sidebar {
+      background: var(--osc-bg-surface);
+      border-right: 1px solid var(--osc-border-default);
+      padding: 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .labelmaker-preview-panel {
+      background: #0d0d0f;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .labelmaker-preview-stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: auto;
+      background-color: #121212;
+      background-image: radial-gradient(#2c2c2c 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .labelmaker-preview-stage svg {
+      max-width: 98%;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+      border-radius: 4px;
+    }
+
+    .labelmaker-footer {
+      height: 48px;
+      padding: 0 16px;
+      background: var(--osc-bg-surface-hover);
+      border-top: 1px solid var(--osc-border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .param-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .param-row label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--osc-text-muted);
+      text-transform: uppercase;
+    }
+
+    .param-row input, .param-row select {
+      width: 110px;
+    }
+
     .data-grid-panel {
       grid-column: 1 / 3;
       grid-row: 2;
@@ -297,6 +403,9 @@
       <span class="window-pill" id="block-tag">CAD CONNECTOR VISUALIZER</span>
     </div>
     <div class="window-actions">
+      <button class="btn btn-secondary" id="btn-open-labelmaker" title="Open Mechanical Label Maker Studio">
+        <span class="btn-icon">📏</span> Label Maker
+      </button>
       <button class="btn btn-secondary" id="btn-sync-discovered" title="Load live panel from Discovered Project">
         <span class="btn-icon">⚡</span> Discovered
       </button>
@@ -364,6 +473,7 @@
           <div class="chip active" data-view="faceplate">🎛️ CAD Faceplate</div>
           <div class="chip" data-view="drill">📐 Drill Blueprint</div>
           <div class="chip" data-view="scribble">🏷️ Scribble Inserts</div>
+          <div class="chip" data-view="labelmaker" style="color:var(--osc-accent-primary); border-color:rgba(244,144,44,0.4);">📏 Label Maker (1:1 Mechanical)</div>
         </div>
 
         <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
@@ -423,6 +533,141 @@
         </table>
       </div>
     </section>
+  </div>
+
+  <!-- Full Mechanical Patch Panel & Patchbay Label Maker Studio Modal -->
+  <div id="modal-label-maker" class="labelmaker-modal-backdrop" style="display: none;">
+    <div class="labelmaker-modal-box">
+      <header class="labelmaker-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 16px;">📏</span>
+          <div>
+            <div style="font-weight: 700; font-size: 13px;">Patch Panel & Patchbay Label Maker Studio</div>
+            <div style="font-size: 10px; color: var(--osc-text-muted);">Exact Mechanical Millimeter Pitch (P), Datum Offset (X₀), Text Auto-Fit & 1:1 Calibration</div>
+          </div>
+        </div>
+        <button id="btn-close-labelmaker" class="btn-icon">✕</button>
+      </header>
+
+      <div class="labelmaker-grid">
+        <!-- Mechanical Geometry Sidebar -->
+        <aside class="labelmaker-sidebar">
+          <div class="form-group">
+            <label for="select-label-preset">Mechanical Equipment Preset</label>
+            <select id="select-label-preset" class="select" style="width: 100%; font-weight: 600; color: var(--osc-accent-primary);">
+              <!-- Populated from LABEL_MECHANICAL_PRESETS -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="select-retaining-type">Chassis Retaining Mechanism</label>
+            <select id="select-retaining-type" class="select" style="width: 100%;">
+              <option value="slide_in">Slide-in Paper Strip with Clear Cover</option>
+              <option value="snap_in">Snap-in Window Inserts (Modular Bezels)</option>
+              <option value="direct_adhesive">Direct-Adhesive Vinyl / Polyester Strip</option>
+            </select>
+          </div>
+
+          <div style="border-top: 1px solid var(--osc-border-default); padding-top: 8px;">
+            <div style="font-size: 10px; font-weight: 700; color: var(--osc-accent-primary); text-transform: uppercase; margin-bottom: 8px;">
+              Geometry Fundamentals
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="param-row">
+                <label for="input-geom-width">Strip Width (W mm):</label>
+                <input type="number" id="input-geom-width" class="input input-sm" value="430.0" step="0.5">
+              </div>
+
+              <div class="param-row">
+                <label for="input-geom-height">Window Height (H mm):</label>
+                <input type="number" id="input-geom-height" class="input input-sm" value="9.5" step="0.5">
+              </div>
+
+              <div class="param-row">
+                <label for="input-geom-pitch">Port Pitch (P mm):</label>
+                <input type="number" id="input-geom-pitch" class="input input-sm" value="17.5" step="0.1">
+              </div>
+
+              <div class="param-row">
+                <label for="input-geom-datum">Datum Margin (X₀ mm):</label>
+                <input type="number" id="input-geom-datum" class="input input-sm" value="13.75" step="0.1">
+              </div>
+
+              <div class="param-row">
+                <label for="input-geom-blocks">Modular Blocks (N):</label>
+                <input type="number" id="input-geom-blocks" class="input input-sm" value="1" min="1" max="12">
+              </div>
+
+              <div class="param-row">
+                <label for="input-geom-blockgap">Block Gap (mm):</label>
+                <input type="number" id="input-geom-blockgap" class="input input-sm" value="0.0" step="0.5">
+              </div>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--osc-border-default); padding-top: 8px;">
+            <div style="font-size: 10px; font-weight: 700; color: var(--osc-text-muted); text-transform: uppercase; margin-bottom: 6px;">
+              Appearance & Micro-Registration
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer;">
+                <input type="checkbox" id="chk-high-contrast" checked> Paper White (Print-ready #FFFFFF)
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer;">
+                <input type="checkbox" id="chk-show-dimensions" checked> Mechanical Dimension Lines
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer;">
+                <input type="checkbox" id="chk-show-color-bar" checked> 1mm Signal Color Band
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer;">
+                <input type="checkbox" id="chk-show-calib-ruler" checked> 50.0mm Printer Calibration Ruler
+              </label>
+            </div>
+          </div>
+        </aside>
+
+        <!-- True-Scale Mechanical Preview Panel -->
+        <main class="labelmaker-preview-panel">
+          <div style="height: 32px; padding: 0 14px; background: var(--osc-bg-surface); border-bottom: 1px solid var(--osc-border-default); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--osc-text-muted);">
+              TRUE 1:1 MECHANICAL PREVIEW · PHYSICAL MILLIMETER COORDINATES
+            </span>
+            <span id="labelmaker-specs-badge" style="font-family: var(--font-mono); font-size: 10px; color: var(--osc-accent-primary);">
+              24P · W=430mm · P=17.5mm · X₀=13.75mm
+            </span>
+          </div>
+
+          <div id="labelmaker-preview-stage" class="labelmaker-preview-stage">
+            <!-- Rendered 1:1 True-Scale SVG Label Strip -->
+          </div>
+        </main>
+      </div>
+
+      <footer class="labelmaker-footer">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 11px; color: var(--osc-text-muted);">Print Sheet Size:</span>
+          <select id="select-print-size" class="select input-sm" style="width: 130px;">
+            <option value="letter">US Letter (11″ × 8.5″)</option>
+            <option value="a4">ISO A4 (297 × 210 mm)</option>
+          </select>
+          <span style="font-size: 11px; color: var(--osc-text-muted); margin-left: 6px;">Copies / Sheet:</span>
+          <input type="number" id="input-print-copies" class="input input-sm" style="width: 50px;" value="3" min="1" max="10">
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" id="btn-label-export-csv" title="Export port schedule CSV">
+            <span>📋 CSV</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-label-export-svg" title="Export 1:1 vector SVG for laser or vinyl cutters">
+            <span>📐 Vector SVG</span>
+          </button>
+          <button class="btn btn-primary btn-sm" id="btn-label-print-1to1" title="Open multi-copy printable sheet with calibration guide">
+            <span>🖨️ Print 1:1 Actual Size Sheet</span>
+          </button>
+        </div>
+      </footer>
+    </div>
   </div>
 
   <script type="module" src="./js/panelBuddyApp.js"></script>

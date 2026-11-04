@@ -5,6 +5,12 @@
 import { BlockBridge } from './blockBridge.js';
 import { CAD_CONNECTOR_CATALOG, getConnectorMeta } from './cadConnectorSymbols.js';
 import { renderCadPanelSvg } from './cadPanelVisualizer.js';
+import {
+  LABEL_MECHANICAL_PRESETS,
+  computePortGeometry,
+  renderMechanicalLabelStripSvg,
+  generatePrintableSheetHtml,
+} from './patchLabelGeometryEngine.js';
 
 export class PanelBuddyApp {
   constructor() {
@@ -19,8 +25,10 @@ export class PanelBuddyApp {
     };
 
     this.selectedPortIndex = 0;
-    this.viewMode = 'faceplate'; // 'faceplate' | 'drill' | 'scribble'
+    this.viewMode = 'faceplate'; // 'faceplate' | 'drill' | 'scribble' | 'labelmaker'
     this.zoom = 1;
+
+    this.activeLabelProfile = { ...LABEL_MECHANICAL_PRESETS[0] };
 
     this.bridge = new BlockBridge({
       name: 'Panel Buddy',
@@ -33,6 +41,7 @@ export class PanelBuddyApp {
     this.attachEvents();
     this.setupChips();
     this.setupConnectorPalette();
+    this.setupLabelMaker();
     this.loadInitialData();
   }
 
@@ -70,6 +79,36 @@ export class PanelBuddyApp {
     this.btnReverse = document.getElementById('btn-reverse');
     this.btnShiftLeft = document.getElementById('btn-shift-left');
     this.btnShiftRight = document.getElementById('btn-shift-right');
+
+    // Label Maker Studio Elements
+    this.btnOpenLabelmaker = document.getElementById('btn-open-labelmaker');
+    this.modalLabelMaker = document.getElementById('modal-label-maker');
+    this.btnCloseLabelmaker = document.getElementById('btn-close-labelmaker');
+
+    this.selectLabelPreset = document.getElementById('select-label-preset');
+    this.selectRetainingType = document.getElementById('select-retaining-type');
+
+    this.inputGeomWidth = document.getElementById('input-geom-width');
+    this.inputGeomHeight = document.getElementById('input-geom-height');
+    this.inputGeomPitch = document.getElementById('input-geom-pitch');
+    this.inputGeomDatum = document.getElementById('input-geom-datum');
+    this.inputGeomBlocks = document.getElementById('input-geom-blocks');
+    this.inputGeomBlockgap = document.getElementById('input-geom-blockgap');
+
+    this.chkHighContrast = document.getElementById('chk-high-contrast');
+    this.chkShowDimensions = document.getElementById('chk-show-dimensions');
+    this.chkShowColorBar = document.getElementById('chk-show-color-bar');
+    this.chkShowCalibRuler = document.getElementById('chk-show-calib-ruler');
+
+    this.labelmakerSpecsBadge = document.getElementById('labelmaker-specs-badge');
+    this.labelmakerPreviewStage = document.getElementById('labelmaker-preview-stage');
+
+    this.selectPrintSize = document.getElementById('select-print-size');
+    this.inputPrintCopies = document.getElementById('input-print-copies');
+
+    this.btnLabelPrint1to1 = document.getElementById('btn-label-print-1to1');
+    this.btnLabelExportSvg = document.getElementById('btn-label-export-svg');
+    this.btnLabelExportCsv = document.getElementById('btn-label-export-csv');
   }
 
   setupChips() {
@@ -120,6 +159,10 @@ export class PanelBuddyApp {
     // View Modes
     this.chipsView.querySelectorAll('.chip').forEach(c => {
       c.addEventListener('click', () => {
+        if (c.dataset.view === 'labelmaker') {
+          this.openLabelMaker();
+          return;
+        }
         this.viewMode = c.dataset.view;
         this.chipsView.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
         c.classList.add('active');
@@ -216,6 +259,136 @@ export class PanelBuddyApp {
     this.btnReverse?.addEventListener('click', () => this.reversePorts());
     this.btnShiftLeft?.addEventListener('click', () => this.shiftPorts('left'));
     this.btnShiftRight?.addEventListener('click', () => this.shiftPorts('right'));
+
+    // Label Maker Open / Close
+    this.btnOpenLabelmaker?.addEventListener('click', () => this.openLabelMaker());
+    this.btnCloseLabelmaker?.addEventListener('click', () => this.closeLabelMaker());
+  }
+
+  setupLabelMaker() {
+    if (!this.selectLabelPreset) return;
+
+    this.selectLabelPreset.innerHTML = '';
+    LABEL_MECHANICAL_PRESETS.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      this.selectLabelPreset.appendChild(opt);
+    });
+
+    this.selectLabelPreset.value = this.activeLabelProfile.id;
+
+    this.selectLabelPreset.addEventListener('change', (e) => {
+      const selected = LABEL_MECHANICAL_PRESETS.find(p => p.id === e.target.value);
+      if (selected) {
+        this.activeLabelProfile = { ...selected };
+        this.syncInputsFromLabelProfile();
+        this.renderLabelMakerPreview();
+      }
+    });
+
+    const bindInput = (el, prop, isNum = true) => {
+      el?.addEventListener('input', (e) => {
+        this.activeLabelProfile[prop] = isNum ? parseFloat(e.target.value) || 0 : e.target.value;
+        this.activeLabelProfile.id = 'custom';
+        this.selectLabelPreset.value = 'custom';
+        this.renderLabelMakerPreview();
+      });
+    };
+
+    bindInput(this.inputGeomWidth, 'widthMm');
+    bindInput(this.inputGeomHeight, 'heightMm');
+    bindInput(this.inputGeomPitch, 'pitchMm');
+    bindInput(this.inputGeomDatum, 'datumMm');
+    bindInput(this.inputGeomBlocks, 'modularBlocks');
+    bindInput(this.inputGeomBlockgap, 'blockGapMm');
+    bindInput(this.selectRetainingType, 'retaining', false);
+
+    [this.chkHighContrast, this.chkShowDimensions, this.chkShowColorBar, this.chkShowCalibRuler].forEach(chk => {
+      chk?.addEventListener('change', () => this.renderLabelMakerPreview());
+    });
+
+    this.btnLabelPrint1to1?.addEventListener('click', () => this.printLabel1to1());
+    this.btnLabelExportSvg?.addEventListener('click', () => this.exportLabelSvg());
+    this.btnLabelExportCsv?.addEventListener('click', () => this.exportCsv());
+  }
+
+  syncInputsFromLabelProfile() {
+    const p = this.activeLabelProfile;
+    if (this.inputGeomWidth) this.inputGeomWidth.value = p.widthMm;
+    if (this.inputGeomHeight) this.inputGeomHeight.value = p.heightMm;
+    if (this.inputGeomPitch) this.inputGeomPitch.value = p.pitchMm;
+    if (this.inputGeomDatum) this.inputGeomDatum.value = p.datumMm;
+    if (this.inputGeomBlocks) this.inputGeomBlocks.value = p.modularBlocks || 1;
+    if (this.inputGeomBlockgap) this.inputGeomBlockgap.value = p.blockGapMm || 0;
+    if (this.selectRetainingType) this.selectRetainingType.value = p.retaining || 'slide_in';
+  }
+
+  openLabelMaker() {
+    if (this.modalLabelMaker) {
+      this.modalLabelMaker.style.display = 'flex';
+      this.syncInputsFromLabelProfile();
+      this.renderLabelMakerPreview();
+    }
+  }
+
+  closeLabelMaker() {
+    if (this.modalLabelMaker) {
+      this.modalLabelMaker.style.display = 'none';
+    }
+  }
+
+  renderLabelMakerPreview() {
+    if (!this.labelmakerPreviewStage) return;
+
+    const options = {
+      highContrast: this.chkHighContrast ? this.chkHighContrast.checked : true,
+      showDimensions: this.chkShowDimensions ? this.chkShowDimensions.checked : true,
+      showSignalColorBar: this.chkShowColorBar ? this.chkShowColorBar.checked : true,
+      showCropMarks: true,
+      showRuler: this.chkShowCalibRuler ? this.chkShowCalibRuler.checked : true
+    };
+
+    const svg = renderMechanicalLabelStripSvg(this.panel, this.activeLabelProfile, options);
+    this.labelmakerPreviewStage.innerHTML = svg;
+
+    if (this.labelmakerSpecsBadge) {
+      const p = this.activeLabelProfile;
+      this.labelmakerSpecsBadge.textContent = `${this.panel.ports.length}P · W=${p.widthMm}mm · P=${p.pitchMm}mm · X₀=${p.datumMm}mm · ${p.retaining.toUpperCase()}`;
+    }
+  }
+
+  printLabel1to1() {
+    const pageSize = this.selectPrintSize?.value || 'letter';
+    const copies = parseInt(this.inputPrintCopies?.value, 10) || 3;
+    const html = generatePrintableSheetHtml(this.panel, this.activeLabelProfile, { pageSize, copies });
+
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(html);
+      printWin.document.close();
+    } else {
+      alert('Pop-up blocked. Please allow pop-ups to open the 1:1 print sheet.');
+    }
+  }
+
+  exportLabelSvg() {
+    const options = {
+      highContrast: true,
+      showDimensions: false,
+      showSignalColorBar: true,
+      showCropMarks: true,
+      showRuler: true
+    };
+    const svg = renderMechanicalLabelStripSvg(this.panel, this.activeLabelProfile, options);
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.panel.name || 'patch_panel'}_label_strip_1to1.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   loadInitialData() {
@@ -332,6 +505,9 @@ export class PanelBuddyApp {
     this.renderPreview();
     this.renderTable();
     this.updateGeometrySummary();
+    if (this.modalLabelMaker && this.modalLabelMaker.style.display === 'flex') {
+      this.renderLabelMakerPreview();
+    }
   }
 
   renderPreview() {
