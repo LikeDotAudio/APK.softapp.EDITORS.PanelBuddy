@@ -11,6 +11,14 @@ import {
   renderMechanicalLabelStripSvg,
   generatePrintableSheetHtml,
 } from './patchLabelGeometryEngine.js';
+import {
+  VENDORS,
+  loadMasterCatalog,
+  loadVendorModels,
+  searchModels,
+  findModel,
+  modelToMechanicalPreset,
+} from './patchPanelVendorCatalog.js';
 
 export class PanelBuddyApp {
   constructor() {
@@ -42,6 +50,7 @@ export class PanelBuddyApp {
     this.setupChips();
     this.setupConnectorPalette();
     this.setupLabelMaker();
+    this.setupHardwareCatalog();
     this.loadInitialData();
   }
 
@@ -79,6 +88,12 @@ export class PanelBuddyApp {
     this.btnReverse = document.getElementById('btn-reverse');
     this.btnShiftLeft = document.getElementById('btn-shift-left');
     this.btnShiftRight = document.getElementById('btn-shift-right');
+
+    // Hardware Catalog Elements
+    this.selectHardwareVendor = document.getElementById('select-hardware-vendor');
+    this.selectHardwareModel = document.getElementById('select-hardware-model');
+    this.selectLabelVendor = document.getElementById('select-label-vendor');
+    this.selectLabelModel = document.getElementById('select-label-model');
 
     // Label Maker Studio Elements
     this.btnOpenLabelmaker = document.getElementById('btn-open-labelmaker');
@@ -356,6 +371,149 @@ export class PanelBuddyApp {
       const p = this.activeLabelProfile;
       this.labelmakerSpecsBadge.textContent = `${this.panel.ports.length}P · W=${p.widthMm}mm · P=${p.pitchMm}mm · X₀=${p.datumMm}mm · ${p.retaining.toUpperCase()}`;
     }
+  }
+
+  async setupHardwareCatalog() {
+    if (!this.selectHardwareVendor && !this.selectLabelVendor) return;
+
+    const populateVendors = (sel, placeholder) => {
+      if (!sel) return;
+      sel.innerHTML = `<option value="">${placeholder}</option>`;
+      VENDORS.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        sel.appendChild(opt);
+      });
+    };
+
+    populateVendors(this.selectHardwareVendor, '-- Choose Manufacturer (15) --');
+    populateVendors(this.selectLabelVendor, '-- Choose Manufacturer (15) --');
+
+    // Asynchronously preload master catalog in background
+    loadMasterCatalog().then(models => {
+      this.masterCatalog = models;
+    }).catch(err => {
+      console.warn('Catalog index preload notice:', err);
+    });
+
+    const handleVendorChange = async (vendor, targetModelSelect, mirrorVendorSelect, mirrorModelSelect) => {
+      if (mirrorVendorSelect && mirrorVendorSelect.value !== vendor) {
+        mirrorVendorSelect.value = vendor;
+      }
+
+      if (!vendor) {
+        if (targetModelSelect) {
+          targetModelSelect.innerHTML = '<option value="">-- Select Vendor First --</option>';
+          targetModelSelect.disabled = true;
+        }
+        if (mirrorModelSelect) {
+          mirrorModelSelect.innerHTML = '<option value="">-- Select Vendor First --</option>';
+          mirrorModelSelect.disabled = true;
+        }
+        return;
+      }
+
+      const models = await loadVendorModels(vendor);
+      const renderOptions = (sel) => {
+        if (!sel) return;
+        sel.innerHTML = `<option value="">-- Choose ${vendor} Model (${models.length}) --</option>`;
+        models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.model;
+          opt.textContent = `${m.model} · ${m.portCount}P ${m.rackUnits} · ${m.type} (P: ${m.portPitchMm}mm / ${m.portPitchInches}″)`;
+          sel.appendChild(opt);
+        });
+        sel.disabled = false;
+      };
+
+      renderOptions(targetModelSelect);
+      renderOptions(mirrorModelSelect);
+    };
+
+    const handleModelChange = async (vendor, modelCode, mirrorModelSelect) => {
+      if (mirrorModelSelect && mirrorModelSelect.value !== modelCode) {
+        mirrorModelSelect.value = modelCode;
+      }
+      if (!modelCode) return;
+
+      const models = await loadVendorModels(vendor);
+      const model = findModel(models, modelCode);
+      if (model) {
+        this.applyHardwareModel(model);
+      }
+    };
+
+    this.selectHardwareVendor?.addEventListener('change', (e) => {
+      handleVendorChange(e.target.value, this.selectHardwareModel, this.selectLabelVendor, this.selectLabelModel);
+    });
+
+    this.selectHardwareModel?.addEventListener('change', (e) => {
+      handleModelChange(this.selectHardwareVendor.value, e.target.value, this.selectLabelModel);
+    });
+
+    this.selectLabelVendor?.addEventListener('change', (e) => {
+      handleVendorChange(e.target.value, this.selectLabelModel, this.selectHardwareVendor, this.selectHardwareModel);
+    });
+
+    this.selectLabelModel?.addEventListener('change', (e) => {
+      handleModelChange(this.selectLabelVendor.value, e.target.value, this.selectHardwareModel);
+    });
+  }
+
+  applyHardwareModel(model) {
+    if (!model) return;
+    const preset = modelToMechanicalPreset(model);
+    this.activeLabelProfile = preset;
+
+    // Determine RU and ports
+    const ruNum = parseInt(model.rackUnits) || 1;
+    this.panel.rackUnits = Math.min(4, Math.max(1, ruNum));
+
+    const totalPorts = Number(model.portCount) || 24;
+    if (ruNum > 1 && totalPorts % ruNum === 0) {
+      this.panel.portsPerRow = Math.round(totalPorts / ruNum);
+    } else {
+      this.panel.portsPerRow = Math.min(48, totalPorts);
+    }
+
+    // Determine default connector for this hardware type
+    let defaultConn = 'XLR-F';
+    const t = String(model.type).toLowerCase();
+    if (t.includes('data') || t.includes('keystone')) defaultConn = 'EtherCON';
+    else if (t.includes('jack') || t.includes('audio') || t.includes('bantam')) defaultConn = 'TT-Bantam';
+    else if (t.includes('video') || t.includes('bnc')) defaultConn = 'BNC';
+
+    // Adjust port array length
+    const current = this.panel.ports || [];
+    if (current.length < totalPorts) {
+      for (let i = current.length + 1; i <= totalPorts; i++) {
+        current.push({
+          portNumber: i,
+          label: `PORT ${i}`,
+          endpoint: '',
+          signal: t.includes('data') ? 'Cat6A' : t.includes('video') ? '12G-SDI' : 'Analog Audio',
+          connector: defaultConn
+        });
+      }
+    } else if (current.length > totalPorts) {
+      this.panel.ports = current.slice(0, totalPorts);
+    }
+
+    // Set panel name to reflect hardware model if default name
+    if (this.panel.name.startsWith('PP-AUDIO') || this.panel.name.startsWith('PP-')) {
+      this.panel.name = `PP-${model.make.toUpperCase().replace(/\s+/g, '')}-${model.model}`;
+      if (this.inputPanelName) this.inputPanelName.value = this.panel.name;
+    }
+
+    this.updateChipsState();
+    this.syncInputsFromLabelProfile();
+    this.render();
+
+    if (this.modalLabelMaker && this.modalLabelMaker.style.display !== 'none') {
+      this.renderLabelMakerPreview();
+    }
+    this.bridge.notifyChanged();
   }
 
   printLabel1to1() {
