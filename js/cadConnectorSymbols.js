@@ -60,6 +60,13 @@ export const CAD_CONNECTOR_CATALOG = [
     "category": "Line/Headphones"
   },
   {
+    "id": "bantam-tt",
+    "label": "TT Bantam",
+    "desc": "4.4mm (0.173\") Balanced Bantam TT Jack",
+    "color": "#F59E0B",
+    "category": "Patchbay"
+  },
+  {
     "id": "hdmi",
     "label": "HDMI 2.1",
     "desc": "Feed-through HDMI Type A Receptacle",
@@ -480,6 +487,27 @@ export const CAD_CONNECTOR_SYMBOLS_SVG = `
         <line x1="103" y1="60" x2="107" y2="60" stroke="#555" stroke-width="1" />
         <line x1="105" y1="58" x2="105" y2="62" stroke="#555" stroke-width="1" />
     </symbol>
+<symbol id="cad-icon-bantam-tt" viewBox="0 0 120 120">
+    <defs>
+        <radialGradient id="cad_tt_bezel" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stop-color="#fbbf24"/>
+            <stop offset="60%" stop-color="#d97706"/>
+            <stop offset="100%" stop-color="#78350f"/>
+        </radialGradient>
+        <radialGradient id="cad_tt_collar" cx="40%" cy="40%" r="60%">
+            <stop offset="0%" stop-color="#f4f4f5"/>
+            <stop offset="70%" stop-color="#71717a"/>
+            <stop offset="100%" stop-color="#27272a"/>
+        </radialGradient>
+    </defs>
+    <circle cx="60" cy="60" r="54" fill="url(#cad_tt_collar)" stroke="#18181b" stroke-width="2"/>
+    <circle cx="60" cy="60" r="46" fill="#18181b"/>
+    <circle cx="60" cy="60" r="42" fill="url(#cad_tt_bezel)" stroke="#78350f" stroke-width="1.5"/>
+    <circle cx="60" cy="60" r="30" fill="#09090b" stroke="#18181b" stroke-width="2"/>
+    <circle cx="60" cy="60" r="20" fill="#030304"/>
+    <path d="M 46 60 A 14 14 0 0 1 74 60" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="60" cy="60" r="6" fill="#fbbf24"/>
+</symbol>
 <symbol id="cad-icon-blank" viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="#1c1c20" stroke="#3f3f46" stroke-width="1.5"/>
 <circle cx="24" cy="24" r="5" fill="#111" stroke="#52525b" stroke-width="1"/>
 <circle cx="96" cy="96" r="5" fill="#111" stroke="#52525b" stroke-width="1"/>
@@ -497,6 +525,7 @@ export function getConnectorMeta(id) {
   if (clean.includes("rj45")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "rj45");
   if (clean.includes("opticalcon") || clean.includes("optic")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "opticalcon");
   if (clean.includes("speakon") || clean.includes("speak")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "speakon");
+  if (clean.includes("bantam") || clean.includes("tt")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "bantam-tt");
   if (clean.includes("trs") || clean.includes("phone") || clean.includes("jack")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "trs");
   if (clean.includes("hdmi")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "hdmi");
   if (clean.includes("usb")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "usbc");

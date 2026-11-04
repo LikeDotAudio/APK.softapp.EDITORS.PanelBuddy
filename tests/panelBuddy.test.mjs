@@ -266,3 +266,90 @@ test('Patch Panel Hardware Vendor Catalog & Geometry Index', async () => {
   assert.equal(searchNeutrik.length, 50);
   searchNeutrik.forEach(m => assert.equal(m.make, 'Neutrik'));
 });
+
+test('CAD Multi-Archetype Faceplate Rendering for All Equipment Models', () => {
+  // 1. Bantam TT Jackfield (e.g. Bittree / Audio Accessories 96-pt)
+  const bantamPanel = {
+    name: 'PP-BANTAM-01',
+    hardwareMake: 'Bittree',
+    hardwareModel: 'BIT-0005',
+    hardwareType: 'Bantam',
+    portsPerRow: 24,
+    rackUnits: 2,
+    portPitchMm: 10.16,
+    datumMm: 98.16,
+    labelWindowHeightMm: 9.14,
+    ports: Array.from({ length: 48 }, (_, i) => ({
+      portNumber: i + 1,
+      label: `TT-${i + 1}`,
+      connector: 'TT Bantam'
+    }))
+  };
+  const bantamSvg = renderCadPanelSvg(bantamPanel, { viewMode: 'faceplate' });
+  assert.ok(bantamSvg.includes('cad-icon-bantam-tt'));
+  assert.ok(bantamSvg.includes('ROW A · OUTPUTS'));
+  assert.ok(bantamSvg.includes('ROW B · INPUTS'));
+  assert.ok(bantamSvg.includes('Bittree BIT-0005'));
+
+  // 2. RJ45 / Keystone Data Panel (e.g. Panduit / CommScope / Leviton)
+  const dataPanel = {
+    name: 'PP-DATA-01',
+    hardwareMake: 'Panduit',
+    hardwareModel: 'PAN-0012',
+    hardwareType: 'Data',
+    portsPerRow: 24,
+    rackUnits: 1,
+    portPitchMm: 19.05,
+    datumMm: 14.5,
+    labelWindowHeightMm: 9.5,
+    ports: Array.from({ length: 24 }, (_, i) => ({
+      portNumber: i + 1,
+      label: `LAN-${i + 1}`,
+      connector: 'EtherCON'
+    }))
+  };
+  const dataSvg = renderCadPanelSvg(dataPanel, { viewMode: 'faceplate' });
+  assert.ok(dataSvg.includes('MODULAR BLOCK 1'));
+  assert.ok(dataSvg.includes('cad-icon-rj45') || dataSvg.includes('cad-icon-ethercon'));
+  assert.ok(dataSvg.includes('Panduit PAN-0012'));
+
+  // 3. 75Ω BNC Video Patch Panel (e.g. Canare / Argosy)
+  const videoPanel = {
+    name: 'PP-VIDEO-01',
+    hardwareMake: 'Canare',
+    hardwareModel: 'CAN-0033',
+    hardwareType: 'Video',
+    portsPerRow: 24,
+    rackUnits: 1,
+    portPitchMm: 17.5,
+    datumMm: 13.75,
+    labelWindowHeightMm: 8.0,
+    ports: Array.from({ length: 24 }, (_, i) => ({
+      portNumber: i + 1,
+      label: `SDI-${i + 1}`,
+      connector: 'BNC'
+    }))
+  };
+  const videoSvg = renderCadPanelSvg(videoPanel, { viewMode: 'faceplate' });
+  assert.ok(videoSvg.includes('cad-icon-bnc'));
+  assert.ok(videoSvg.includes('75Ω SDI VIDEO CHANNELS'));
+  assert.ok(videoSvg.includes('Canare CAN-0033'));
+
+  // 4. Standard XLR / Termination Panel (e.g. Neutrik / Pinanson)
+  const xlrPanel = {
+    name: 'PP-XLR-01',
+    hardwareMake: 'Neutrik',
+    hardwareModel: 'NEU-0019',
+    hardwareType: 'Termination Panel',
+    portsPerRow: 16,
+    rackUnits: 1,
+    ports: Array.from({ length: 16 }, (_, i) => ({
+      portNumber: i + 1,
+      label: `MIC-${i + 1}`,
+      connector: 'XLR-F'
+    }))
+  };
+  const xlrSvg = renderCadPanelSvg(xlrPanel, { viewMode: 'faceplate' });
+  assert.ok(xlrSvg.includes('cad-icon-xlr-f'));
+  assert.ok(xlrSvg.includes('Neutrik NEU-0019'));
+});

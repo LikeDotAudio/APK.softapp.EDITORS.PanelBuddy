@@ -1,6 +1,7 @@
 // Part of the APK.audio project — http://APK.audio — made by Anthony Kuzub
 // MIT Licence. Free, for everyone, for ever. Full text in LICENSE at the root.
 // Authentic 19-Inch EIA-310 CAD Panel Visualizer & Mechanical Blueprint Generator
+// Visualizes all equipment archetypes: Bantam TT, 1/4" Jack, RJ45 Data, 75Ω Video, and EIA D-Series Termination
 
 import { CAD_CONNECTOR_SYMBOLS_SVG, getConnectorMeta } from './cadConnectorSymbols.js';
 
@@ -29,11 +30,25 @@ export function renderCadPanelSvg(panel, options = {}) {
 
   const portsPerRow = Math.max(1, parseInt(panel.portsPerRow || 24, 10));
   const ports = Array.isArray(panel.ports) ? panel.ports : [];
-  const numRows = Math.ceil(ports.length / portsPerRow) || 1;
+  const numRows = Math.max(1, Math.ceil(ports.length / portsPerRow) || 1);
+
+  // Hardware model archetype detection
+  const hwType = String(panel.hardwareType || panel.type || '').trim().toLowerCase();
+  const isBantam = hwType.includes('bantam');
+  const isJack = hwType.includes('jack') && !isBantam;
+  const isData = hwType.includes('data') || hwType.includes('keystone');
+  const isVideo = hwType.includes('video');
+  const isAudioPatchbay = isBantam || isJack;
+
+  // Exact hardware physical pitch and datum offset
+  const hasPhysicalPitch = Boolean(panel.portPitchMm && panel.datumMm);
+  const pitchMm = Number(panel.portPitchMm) || (usableWidthMm / portsPerRow);
+  const datumMm = Number(panel.datumMm) || Math.max(6, (usableWidthMm - (portsPerRow - 1) * pitchMm) / 2);
+  const windowHMm = Math.min(11, Number(panel.labelWindowHeightMm) || (isData ? 9.5 : isAudioPatchbay ? 8.0 : 7.5));
 
   const svgParts = [];
 
-  // 1. Defs containing CAD connector symbols
+  // 1. Defs containing CAD connector symbols and photorealistic shaders
   svgParts.push('<defs>');
   svgParts.push(CAD_CONNECTOR_SYMBOLS_SVG);
   svgParts.push(`
@@ -43,16 +58,43 @@ export function renderCadPanelSvg(panel, options = {}) {
       <stop offset="97%" stop-color="#141416"/>
       <stop offset="100%" stop-color="#0a0a0c"/>
     </linearGradient>
+    <linearGradient id="cad_bantam_chassis" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1f2024"/>
+      <stop offset="4%" stop-color="#141518"/>
+      <stop offset="96%" stop-color="#101114"/>
+      <stop offset="100%" stop-color="#0a0a0c"/>
+    </linearGradient>
     <linearGradient id="cad_ear_bevel" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#3f3f46"/>
       <stop offset="10%" stop-color="#27272a"/>
       <stop offset="90%" stop-color="#1c1c1f"/>
       <stop offset="100%" stop-color="#111113"/>
     </linearGradient>
+    <linearGradient id="cad_recess_channel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#050507"/>
+      <stop offset="15%" stop-color="#0b0b0e"/>
+      <stop offset="85%" stop-color="#0e0e12"/>
+      <stop offset="100%" stop-color="#18181c"/>
+    </linearGradient>
+    <linearGradient id="cad_keystone_bezel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a2a30"/>
+      <stop offset="5%" stop-color="#1c1c20"/>
+      <stop offset="95%" stop-color="#141417"/>
+      <stop offset="100%" stop-color="#0c0c0e"/>
+    </linearGradient>
+    <linearGradient id="cad_label_strip_bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
+    </linearGradient>
     <radialGradient id="cad_screw_head" cx="35%" cy="30%" r="65%">
       <stop offset="0%" stop-color="#e4e4e7"/>
       <stop offset="40%" stop-color="#a1a1aa"/>
       <stop offset="100%" stop-color="#3f3f46"/>
+    </radialGradient>
+    <radialGradient id="cad_bnc_ring" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="60%" stop-color="#94a3b8"/>
+      <stop offset="100%" stop-color="#475569"/>
     </radialGradient>
     <filter id="cad_select_glow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#F4902C" flood-opacity="0.8"/>
@@ -65,9 +107,9 @@ export function renderCadPanelSvg(panel, options = {}) {
     svgParts.push(`<rect x="0" y="0" width="${rackWidthMm}" height="${rackHeightMm}" fill="#0d0e12" stroke="#2563eb" stroke-width="0.8"/>`);
     svgParts.push(`<rect x="${earWidthMm}" y="0" width="${usableWidthMm}" height="${rackHeightMm}" fill="none" stroke="#3b82f6" stroke-width="0.4" stroke-dasharray="3,2"/>`);
 
-    // Blueprint grid watermark & title block
-    svgParts.push(`<text x="24" y="6" fill="#38bdf8" font-size="3" font-family="monospace" font-weight="bold">FABRICATION BLUEPRINT: ${esc(panel.name || 'PATCH PANEL')} · ${ru}U EIA-310-D</text>`);
-    svgParts.push(`<text x="${rackWidthMm - 24}" y="6" fill="#64748b" font-size="2.4" text-anchor="end" font-family="monospace">BORE: Ø24.0mm · M3 SCREWS: 19.05 x 24.0mm</text>`);
+    const typeDesc = isBantam ? 'TT BANTAM AUDIO JACKFIELD' : isJack ? '1/4" TRS JACKFIELD' : isData ? 'MODULAR RJ45 KEYSTONE' : isVideo ? '75Ω BNC VIDEO PATCH' : 'D-SERIES TERMINATION';
+    svgParts.push(`<text x="24" y="6" fill="#38bdf8" font-size="3" font-family="monospace" font-weight="bold">FABRICATION BLUEPRINT: ${esc(panel.name || 'PATCH PANEL')} · ${ru}U EIA-310-D [${typeDesc}]</text>`);
+    svgParts.push(`<text x="${rackWidthMm - 24}" y="6" fill="#64748b" font-size="2.4" text-anchor="end" font-family="monospace">PITCH: ${pitchMm.toFixed(2)}mm · DATUM X₀: ${datumMm.toFixed(2)}mm · BORE: Ø${isBantam ? '6.5' : isData ? '14.5x16' : '24.0'}mm</text>`);
 
     // Rack ear mounting slots
     if (!isWallPlate) {
@@ -84,24 +126,29 @@ export function renderCadPanelSvg(panel, options = {}) {
 
     // Drill centers for each port
     const rowSpacing = (rackHeightMm - 14) / numRows;
-    const colSpacing = usableWidthMm / portsPerRow;
 
     ports.forEach((port, idx) => {
       const r = Math.floor(idx / portsPerRow);
       const c = idx % portsPerRow;
-      const cx = earWidthMm + colSpacing * (c + 0.5);
+      const cx = hasPhysicalPitch
+        ? (earWidthMm + datumMm + c * pitchMm)
+        : (earWidthMm + (usableWidthMm / portsPerRow) * (c + 0.5));
       const cy = 10 + rowSpacing * (r + 0.5);
 
-      // 24mm bore
-      svgParts.push(`<circle cx="${cx}" cy="${cy}" r="12" fill="none" stroke="#38bdf8" stroke-width="0.6"/>`);
-      // Crosshairs
-      svgParts.push(`<line x1="${cx - 14}" y1="${cy}" x2="${cx + 14}" y2="${cy}" stroke="#0ea5e9" stroke-width="0.3" stroke-dasharray="2,1"/>`);
-      svgParts.push(`<line x1="${cx}" y1="${cy - 14}" x2="${cx}" y2="${cy + 14}" stroke="#0ea5e9" stroke-width="0.3" stroke-dasharray="2,1"/>`);
-      // M3 screw holes (standard Neutrik D: 19.05mm horizontal, 24.0mm vertical or diagonal)
-      svgParts.push(`<circle cx="${cx - 9.5}" cy="${cy - 12}" r="1.6" fill="none" stroke="#ef4444" stroke-width="0.4"/>`);
-      svgParts.push(`<circle cx="${cx + 9.5}" cy="${cy + 12}" r="1.6" fill="none" stroke="#ef4444" stroke-width="0.4"/>`);
-      // Port ID
-      svgParts.push(`<text x="${cx}" y="${cy + 1.2}" fill="#64748b" font-size="3" text-anchor="middle" font-family="monospace">${port.portNumber ?? (idx + 1)}</text>`);
+      if (isBantam) {
+        svgParts.push(`<circle cx="${cx}" cy="${cy}" r="3.25" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
+        svgParts.push(`<line x1="${cx - 5}" y1="${cy}" x2="${cx + 5}" y2="${cy}" stroke="#0ea5e9" stroke-width="0.2" stroke-dasharray="1,1"/>`);
+        svgParts.push(`<line x1="${cx}" y1="${cy - 5}" x2="${cx}" y2="${cy + 5}" stroke="#0ea5e9" stroke-width="0.2" stroke-dasharray="1,1"/>`);
+      } else if (isData) {
+        svgParts.push(`<rect x="${cx - 7.5}" y="${cy - 8}" width="15" height="16" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
+      } else {
+        svgParts.push(`<circle cx="${cx}" cy="${cy}" r="12" fill="none" stroke="#38bdf8" stroke-width="0.6"/>`);
+        svgParts.push(`<line x1="${cx - 14}" y1="${cy}" x2="${cx + 14}" y2="${cy}" stroke="#0ea5e9" stroke-width="0.3" stroke-dasharray="2,1"/>`);
+        svgParts.push(`<line x1="${cx}" y1="${cy - 14}" x2="${cx}" y2="${cy + 14}" stroke="#0ea5e9" stroke-width="0.3" stroke-dasharray="2,1"/>`);
+        svgParts.push(`<circle cx="${cx - 9.5}" cy="${cy - 12}" r="1.6" fill="none" stroke="#ef4444" stroke-width="0.4"/>`);
+        svgParts.push(`<circle cx="${cx + 9.5}" cy="${cy + 12}" r="1.6" fill="none" stroke="#ef4444" stroke-width="0.4"/>`);
+      }
+      svgParts.push(`<text x="${cx}" y="${cy + 1.2}" fill="#64748b" font-size="2.6" text-anchor="middle" font-family="monospace">${port.portNumber ?? (idx + 1)}</text>`);
     });
 
   } else if (viewMode === 'scribble') {
@@ -136,9 +183,11 @@ export function renderCadPanelSvg(panel, options = {}) {
     }
 
   } else {
-    // ── REALISTIC CAD 19-INCH HARDWARE FACEPLATE ───────────────────────
+    // ── AUTHENTIC CAD HARDWARE FACEPLATE (MODEL-SPECIFIC ARCHETYPE) ─────
+
     // Main Chassis Plate
-    svgParts.push(`<rect x="0" y="0" width="${rackWidthMm}" height="${rackHeightMm}" rx="2" fill="url(#cad_chassis_finish)" stroke="#2c2c2c" stroke-width="0.8"/>`);
+    const chassisFill = isBantam ? 'url(#cad_bantam_chassis)' : 'url(#cad_chassis_finish)';
+    svgParts.push(`<rect x="0" y="0" width="${rackWidthMm}" height="${rackHeightMm}" rx="2" fill="${chassisFill}" stroke="#2c2c2c" stroke-width="0.8"/>`);
     svgParts.push(`<rect x="0.8" y="0.8" width="${rackWidthMm - 1.6}" height="${rackHeightMm - 1.6}" rx="1.5" fill="none" stroke="#3f3f46" stroke-width="0.3"/>`);
 
     // Left and Right Rack Mounting Ears with Brushed Bevel & Oval Screws
@@ -151,9 +200,7 @@ export function renderCadPanelSvg(panel, options = {}) {
         for (let u = 0; u < ru; u++) {
           const uCenterY = u * 44.45 + 22.225;
           [uCenterY - 15.875, uCenterY + 15.875].forEach(slotY => {
-            // Oval slot cutout
             svgParts.push(`<rect x="${earX - 3.5}" y="${slotY - 4.5}" width="7" height="9" rx="3.5" fill="#09090b" stroke="#3f3f46" stroke-width="0.8"/>`);
-            // Rack washer & screw head
             svgParts.push(`<circle cx="${earX}" cy="${slotY}" r="4.2" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.5"/>`);
             svgParts.push(`<rect x="${earX - 2.8}" y="${slotY - 0.5}" width="5.6" height="1" fill="#18181b"/>`);
           });
@@ -161,73 +208,205 @@ export function renderCadPanelSvg(panel, options = {}) {
       });
     }
 
-    // Top Header Laser-engraved silkscreen brand
+    // Top Header Laser-engraved silkscreen brand & model tag
     svgParts.push(`<rect x="${earWidthMm + 4}" y="1.5" width="${usableWidthMm - 8}" height="5.5" rx="1" fill="#0f0f11" stroke="#2c2c2c" stroke-width="0.4"/>`);
     svgParts.push(`<circle cx="${earWidthMm + 8}" cy="4.2" r="1.4" fill="#F4902C"/>`);
-    svgParts.push(`<text x="${earWidthMm + 12}" y="5.1" fill="#f4f4f5" font-size="2.6" font-weight="700" font-family="sans-serif">${esc(panel.name || 'PP-AUDIO-01')}</text>`);
-    svgParts.push(`<text x="${earWidthMm + 45}" y="5.1" fill="#888888" font-size="2.1" font-family="sans-serif">${esc(panel.room || 'MDF RACK 01')} · ${ru}U EIA-310 · ${ports.length} PORTS</text>`);
+
+    const mfgTag = panel.hardwareMake ? `${panel.hardwareMake} ${panel.hardwareModel || ''}` : '';
+    const panelTitle = panel.name || 'PP-AUDIO-01';
+    svgParts.push(`<text x="${earWidthMm + 12}" y="5.1" fill="#f4f4f5" font-size="2.6" font-weight="700" font-family="sans-serif">${esc(panelTitle)}</text>`);
+
+    const subTag = mfgTag ? `${mfgTag} · ${ru}U ${panel.hardwareType || 'Panel'}` : `${esc(panel.room || 'MDF RACK 01')} · ${ru}U EIA-310 · ${ports.length} PORTS`;
+    svgParts.push(`<text x="${earWidthMm + (panelTitle.length * 2.2 + 18)}" y="5.1" fill="#888888" font-size="2.1" font-family="sans-serif">${esc(subTag)}</text>`);
     svgParts.push(`<text x="${rackWidthMm - earWidthMm - 6}" y="5.1" fill="#F4902C" font-size="2.2" font-weight="bold" text-anchor="end" font-family="monospace">APK.audio CAD</text>`);
 
-    // Port Layout calculation
-    const rowHeight = (rackHeightMm - 10) / numRows;
-    const colWidth = usableWidthMm / portsPerRow;
+    // ── ARCHETYPE-SPECIFIC CHASSIS HIGHLIGHTS ──
+
+    if (isAudioPatchbay) {
+      // BANTAM TT or 1/4" TRS JACKFIELD CHASSIS
+      // Continuous recessed designation channel along the top and bottom
+      const channelW = usableWidthMm - 8;
+      const channelX = earWidthMm + 4;
+      const topLabelY = 8;
+      const btmLabelY = rackHeightMm - windowHMm - 3;
+
+      // Top Designation Pocket
+      svgParts.push(`<rect x="${channelX}" y="${topLabelY}" width="${channelW}" height="${windowHMm}" rx="1" fill="url(#cad_recess_channel)" stroke="#27272a" stroke-width="0.5"/>`);
+      svgParts.push(`<rect x="${channelX + 0.5}" y="${topLabelY + 0.5}" width="${channelW - 1}" height="${windowHMm - 1}" fill="url(#cad_label_strip_bg)"/>`);
+      svgParts.push(`<text x="${channelX + 2}" y="${topLabelY + windowHMm - 2}" fill="#d97706" font-size="2.2" font-weight="bold" font-family="monospace">ROW A · OUTPUTS</text>`);
+
+      // Bottom Designation Pocket
+      if (numRows > 1 || ru >= 2) {
+        svgParts.push(`<rect x="${channelX}" y="${btmLabelY}" width="${channelW}" height="${windowHMm}" rx="1" fill="url(#cad_recess_channel)" stroke="#27272a" stroke-width="0.5"/>`);
+        svgParts.push(`<rect x="${channelX + 0.5}" y="${btmLabelY + 0.5}" width="${channelW - 1}" height="${windowHMm - 1}" fill="url(#cad_label_strip_bg)"/>`);
+        svgParts.push(`<text x="${channelX + 2}" y="${btmLabelY + windowHMm - 2}" fill="#2563eb" font-size="2.2" font-weight="bold" font-family="monospace">ROW B · INPUTS</text>`);
+      }
+
+      // Middle Ground Bus / Jack Rail Channel
+      const midY = (topLabelY + windowHMm + btmLabelY) / 2;
+      svgParts.push(`<line x1="${channelX}" y1="${midY}" x2="${channelX + channelW}" y2="${midY}" stroke="#27272a" stroke-width="0.8"/>`);
+      svgParts.push(`<line x1="${channelX}" y1="${midY}" x2="${channelX + channelW}" y2="${midY}" stroke="#09090b" stroke-width="0.4" stroke-dasharray="2,2"/>`);
+
+    } else if (isData) {
+      // MODULAR KEYSTONE / RJ45 DATA PANEL
+      // 4 Modular Bezel Blocks (groups of 6 ports)
+      const blocksCount = Math.max(1, Math.round(portsPerRow / 6));
+      const blockSpan = (usableWidthMm - 12) / blocksCount;
+
+      for (let b = 0; b < blocksCount; b++) {
+        const bx = earWidthMm + 6 + b * blockSpan;
+        const bw = blockSpan - 3;
+        const by = 8;
+        const bh = rackHeightMm - 13;
+
+        svgParts.push(`<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="2" fill="url(#cad_keystone_bezel)" stroke="#3f3f46" stroke-width="0.5"/>`);
+        svgParts.push(`<text x="${bx + bw / 2}" y="${by + 3.2}" fill="#71717a" font-size="2" text-anchor="middle" font-family="sans-serif">MODULAR BLOCK ${b + 1}</text>`);
+
+        // Slide-in label window above ports in each modular block
+        svgParts.push(`<rect x="${bx + 2}" y="${by + 4.2}" width="${bw - 4}" height="${windowHMm * 0.75}" rx="0.8" fill="#ffffff" stroke="#94a3b8" stroke-width="0.3"/>`);
+      }
+
+    } else if (isVideo) {
+      // 75Ω BNC VIDEO PATCH PANEL
+      const channelW = usableWidthMm - 8;
+      const channelX = earWidthMm + 4;
+      svgParts.push(`<rect x="${channelX}" y="8" width="${channelW}" height="${windowHMm}" rx="1" fill="url(#cad_recess_channel)" stroke="#3b82f6" stroke-width="0.4"/>`);
+      svgParts.push(`<rect x="${channelX + 0.5}" y="8.5" width="${channelW - 1}" height="${windowHMm - 1}" fill="url(#cad_label_strip_bg)"/>`);
+      svgParts.push(`<text x="${channelX + 2}" y="${8 + windowHMm - 2}" fill="#0f172a" font-size="2.2" font-weight="bold" font-family="monospace">75Ω SDI VIDEO CHANNELS</text>`);
+    }
+
+    // ── PORT RENDERING LOOP ──
+    const rowHeight = (rackHeightMm - (isAudioPatchbay ? windowHMm * 2 + 10 : 12)) / numRows;
 
     ports.forEach((port, idx) => {
       const r = Math.floor(idx / portsPerRow);
       const c = idx % portsPerRow;
-      const cx = earWidthMm + colWidth * (c + 0.5);
-      const cy = 8 + rowHeight * (r + 0.45);
+
+      // Exact horizontal center X using physical hardware pitch or proportional grid
+      const cx = hasPhysicalPitch
+        ? (earWidthMm + datumMm + c * pitchMm)
+        : (earWidthMm + (usableWidthMm / portsPerRow) * (c + 0.5));
+
+      // Vertical center Y
+      let cy = 8 + (isAudioPatchbay ? windowHMm + 2 : 0) + rowHeight * (r + 0.5);
+      if (isAudioPatchbay && numRows === 2) {
+        cy = r === 0 ? (8 + windowHMm + 5.5) : (rackHeightMm - windowHMm - 8.5);
+      }
 
       const isSelected = selectedPortIndex === idx;
-      const connMeta = getConnectorMeta(port.connector || 'XLR-F');
+      const defaultIcon = isBantam ? 'bantam-tt' : isJack ? 'trs' : isData ? 'ethercon' : isVideo ? 'bnc' : 'xlr-f';
+      const connMeta = getConnectorMeta(port.connector || defaultIcon);
 
       const portNum = port.portNumber ?? (idx + 1);
       const label = port.label || `P${portNum}`;
       const dest = port.endpoint || '';
 
-      // Port Group with Drag & Drop and Interactive Events
+      // Port interactive SVG Group
       svgParts.push(`<g class="cad-panel-port" draggable="true" data-port-index="${idx}" data-port-num="${portNum}" style="cursor: grab;">`);
 
-      // D-Series Flange Plate (26mm x 31mm, scaled to fit row)
-      const flangeW = Math.min(colWidth * 0.92, 26);
-      const flangeH = Math.min(rowHeight * 0.72, 31);
-      const flangeX = cx - flangeW / 2;
-      const flangeY = cy - flangeH / 2;
+      if (isBantam) {
+        // ── 1. BANTAM TT PRECISION BUSHING VISUALIZATION ──
+        const radius = isSelected ? 4.6 : 3.8;
+        const filterAttr = isSelected ? 'filter="url(#cad_select_glow)"' : '';
+        const strokeColor = isSelected ? '#F4902C' : '#18181b';
 
-      // Selection Glow or Standard Flange
-      const filterAttr = isSelected ? 'filter="url(#cad_select_glow)"' : '';
-      const strokeColor = isSelected ? '#F4902C' : '#3f3f46';
-      const strokeW = isSelected ? '1.2' : '0.5';
+        // Outer collar & gold bushing
+        svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${radius}" fill="#27272a" stroke="${strokeColor}" stroke-width="${isSelected ? 0.9 : 0.4}" ${filterAttr}/>`);
+        svgParts.push(`<use href="#cad-icon-bantam-tt" x="${cx - radius * 0.9}" y="${cy - radius * 0.9}" width="${radius * 1.8}" height="${radius * 1.8}"/>`);
 
-      svgParts.push(`<rect x="${flangeX}" y="${flangeY}" width="${flangeW}" height="${flangeH}" rx="1.5" fill="#1f1f23" stroke="${strokeColor}" stroke-width="${strokeW}" ${filterAttr}/>`);
+        // Normalling arrow indicator between Row A and Row B
+        if (r === 0 && numRows === 2) {
+          const cyBottom = rackHeightMm - windowHMm - 8.5;
+          svgParts.push(`<line x1="${cx}" y1="${cy + 4.5}" x2="${cx}" y2="${cyBottom - 4.5}" stroke="${isSelected ? '#F4902C' : '#3f3f46'}" stroke-width="0.3" stroke-dasharray="1,1"/>`);
+          svgParts.push(`<polygon points="${cx},${(cy + cyBottom) / 2 + 1} ${cx - 0.8},${(cy + cyBottom) / 2 - 0.8} ${cx + 0.8},${(cy + cyBottom) / 2 - 0.8}" fill="${isSelected ? '#F4902C' : '#71717a'}"/>`);
+        }
 
-      // D-Flange M3 Mounting Screws (top-left & bottom-right)
-      svgParts.push(`<circle cx="${flangeX + 2.4}" cy="${flangeY + 2.4}" r="1.1" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.3"/>`);
-      svgParts.push(`<circle cx="${flangeX + flangeW - 2.4}" cy="${flangeY + flangeH - 2.4}" r="1.1" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.3"/>`);
+        // Port number & label printed on adjacent designation strip
+        const labelY = r === 0 ? (8 + windowHMm - 2) : (rackHeightMm - 5);
+        svgParts.push(`<text x="${cx}" y="${labelY}" fill="#0f172a" font-size="1.8" font-weight="bold" text-anchor="middle" font-family="sans-serif">${esc(label)}</text>`);
+        svgParts.push(`<text x="${cx}" y="${r === 0 ? cy - 4.5 : cy + 6}" fill="${isSelected ? '#F4902C' : '#71717a'}" font-size="1.8" font-family="monospace" text-anchor="middle">${portNum}</text>`);
 
-      // Bore Hole
-      const boreRadius = Math.min(flangeW, flangeH) * 0.42;
-      svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${boreRadius}" fill="#09090b" stroke="#2c2c2c" stroke-width="0.6"/>`);
+      } else if (isJack) {
+        // ── 2. 1/4" BALANCED TRS PHONE JACK VISUALIZATION ──
+        const radius = isSelected ? 6.8 : 5.8;
+        const filterAttr = isSelected ? 'filter="url(#cad_select_glow)"' : '';
+        svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${radius}" fill="#3f3f46" stroke="${isSelected ? '#F4902C' : '#18181b'}" stroke-width="${isSelected ? 1.0 : 0.5}" ${filterAttr}/>`);
+        svgParts.push(`<use href="#cad-icon-trs" x="${cx - radius * 0.9}" y="${cy - radius * 0.9}" width="${radius * 1.8}" height="${radius * 1.8}"/>`);
+        svgParts.push(`<text x="${cx}" y="${cy - radius - 1}" fill="${isSelected ? '#F4902C' : '#a1a1aa'}" font-size="2" font-family="monospace" text-anchor="middle">${portNum}</text>`);
 
-      // Authentic Vector CAD Connector Icon rendered inside the bore!
-      const iconSize = boreRadius * 1.85;
-      svgParts.push(`<use href="#cad-icon-${connMeta.id}" x="${cx - iconSize / 2}" y="${cy - iconSize / 2}" width="${iconSize}" height="${iconSize}"/>`);
+      } else if (isData) {
+        // ── 3. KEYSTONE / RJ45 MODULAR PORT VISUALIZATION ──
+        const kw = Math.min(pitchMm * 0.88, 15.5);
+        const kh = Math.min(rowHeight * 0.7, 16.5);
+        const kx = cx - kw / 2;
+        const ky = cy - kh / 2;
+        const filterAttr = isSelected ? 'filter="url(#cad_select_glow)"' : '';
 
-      // Port Number Tag
-      const numBadgeY = flangeY - 1.2;
-      svgParts.push(`<text x="${cx}" y="${numBadgeY}" fill="${isSelected ? '#F4902C' : '#a1a1aa'}" font-size="2.2" font-weight="bold" text-anchor="middle" font-family="monospace">${portNum}</text>`);
+        // Molded modular bezel cutout
+        svgParts.push(`<rect x="${kx}" y="${ky}" width="${kw}" height="${kh}" rx="1" fill="#09090b" stroke="${isSelected ? '#F4902C' : '#3f3f46'}" stroke-width="${isSelected ? 1.0 : 0.5}" ${filterAttr}/>`);
 
-      // Integrated Scribble Strip (below connector)
-      const scribbleY = flangeY + flangeH + 0.5;
-      const scribbleH = Math.max(4.5, rowHeight - flangeH - 3.5);
-      svgParts.push(`<rect x="${flangeX}" y="${scribbleY}" width="${flangeW}" height="${scribbleH}" rx="0.8" fill="#0f0f11" stroke="#2c2c2c" stroke-width="0.3"/>`);
+        // Shielded RJ45 / EtherCON Socket Icon
+        const iconSize = Math.min(kw, kh) * 0.85;
+        svgParts.push(`<use href="#cad-icon-rj45" x="${cx - iconSize / 2}" y="${cy - iconSize / 2}" width="${iconSize}" height="${iconSize}"/>`);
+        svgParts.push(`<text x="${cx}" y="${ky - 1.2}" fill="${isSelected ? '#F4902C' : '#71717a'}" font-size="1.9" font-family="monospace" text-anchor="middle">${portNum}</text>`);
 
-      // Primary Port Label
-      svgParts.push(`<text x="${cx}" y="${scribbleY + 2.6}" fill="#f4f4f5" font-size="2.1" font-weight="bold" text-anchor="middle" font-family="sans-serif">${esc(label)}</text>`);
+        // Label on modular strip
+        svgParts.push(`<text x="${cx}" y="${ky + kh + 2.8}" fill="#f4f4f5" font-size="1.8" font-weight="bold" font-family="sans-serif" text-anchor="middle">${esc(label)}</text>`);
 
-      // Destination / Endpoint Wire Tag
-      if (dest && scribbleH > 5.5) {
-        svgParts.push(`<text x="${cx}" y="${scribbleY + 5.1}" fill="#888888" font-size="1.6" text-anchor="middle" font-family="sans-serif">${esc(dest)}</text>`);
+      } else if (isVideo) {
+        // ── 4. 75Ω BNC VIDEO BULKHEAD VISUALIZATION ──
+        const radius = isSelected ? 8.2 : 7.2;
+        const filterAttr = isSelected ? 'filter="url(#cad_select_glow)"' : '';
+
+        svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${radius}" fill="url(#cad_bnc_ring)" stroke="${isSelected ? '#F4902C' : '#18181b'}" stroke-width="${isSelected ? 1.1 : 0.6}" ${filterAttr}/>`);
+        const iconSize = radius * 1.7;
+        svgParts.push(`<use href="#cad-icon-bnc" x="${cx - iconSize / 2}" y="${cy - iconSize / 2}" width="${iconSize}" height="${iconSize}"/>`);
+        svgParts.push(`<text x="${cx}" y="${cy - radius - 1.2}" fill="${isSelected ? '#F4902C' : '#a1a1aa'}" font-size="2" font-family="monospace" text-anchor="middle">${portNum}</text>`);
+        svgParts.push(`<text x="${cx}" y="${cy + radius + 3.2}" fill="#f4f4f5" font-size="1.9" font-weight="bold" font-family="sans-serif" text-anchor="middle">${esc(label)}</text>`);
+
+      } else {
+        // ── 5. STANDARD EIA-310-D D-SERIES FLANGE VISUALIZATION ──
+        const colWidth = usableWidthMm / portsPerRow;
+        const flangeW = Math.min(colWidth * 0.92, 26);
+        const flangeH = Math.min(rowHeight * 0.72, 31);
+        const flangeX = cx - flangeW / 2;
+        const flangeY = cy - flangeH / 2;
+
+        const filterAttr = isSelected ? 'filter="url(#cad_select_glow)"' : '';
+        const strokeColor = isSelected ? '#F4902C' : '#3f3f46';
+        const strokeW = isSelected ? '1.2' : '0.5';
+
+        // D-Flange Plate
+        svgParts.push(`<rect x="${flangeX}" y="${flangeY}" width="${flangeW}" height="${flangeH}" rx="1.5" fill="#1f1f23" stroke="${strokeColor}" stroke-width="${strokeW}" ${filterAttr}/>`);
+
+        // D-Flange M3 Mounting Screws (top-left & bottom-right)
+        svgParts.push(`<circle cx="${flangeX + 2.4}" cy="${flangeY + 2.4}" r="1.1" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.3"/>`);
+        svgParts.push(`<circle cx="${flangeX + flangeW - 2.4}" cy="${flangeY + flangeH - 2.4}" r="1.1" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.3"/>`);
+
+        // Bore Hole
+        const boreRadius = Math.min(flangeW, flangeH) * 0.42;
+        svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${boreRadius}" fill="#09090b" stroke="#2c2c2c" stroke-width="0.6"/>`);
+
+        // Authentic Vector CAD Connector Icon rendered inside the bore
+        const iconSize = boreRadius * 1.85;
+        svgParts.push(`<use href="#cad-icon-${connMeta.id}" x="${cx - iconSize / 2}" y="${cy - iconSize / 2}" width="${iconSize}" height="${iconSize}"/>`);
+
+        // Port Number Tag
+        const numBadgeY = flangeY - 1.2;
+        svgParts.push(`<text x="${cx}" y="${numBadgeY}" fill="${isSelected ? '#F4902C' : '#a1a1aa'}" font-size="2.2" font-weight="bold" text-anchor="middle" font-family="monospace">${portNum}</text>`);
+
+        // Integrated Scribble Strip (below connector)
+        const scribbleY = flangeY + flangeH + 0.5;
+        const scribbleH = Math.max(4.5, rowHeight - flangeH - 3.5);
+        svgParts.push(`<rect x="${flangeX}" y="${scribbleY}" width="${flangeW}" height="${scribbleH}" rx="0.8" fill="#0f0f11" stroke="#2c2c2c" stroke-width="0.3"/>`);
+
+        // Primary Port Label
+        svgParts.push(`<text x="${cx}" y="${scribbleY + 2.6}" fill="#f4f4f5" font-size="2.1" font-weight="bold" text-anchor="middle" font-family="sans-serif">${esc(label)}</text>`);
+
+        // Destination / Endpoint Wire Tag
+        if (dest && scribbleH > 5.5) {
+          svgParts.push(`<text x="${cx}" y="${scribbleY + 5.1}" fill="#888888" font-size="1.6" text-anchor="middle" font-family="sans-serif">${esc(dest)}</text>`);
+        }
       }
 
       svgParts.push('</g>');
