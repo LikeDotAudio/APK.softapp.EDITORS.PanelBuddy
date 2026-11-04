@@ -25,6 +25,8 @@ import {
   findModel,
   modelToMechanicalPreset
 } from '../js/patchPanelVendorCatalog.js';
+import { generateCadPanelDxf } from '../js/cadDxfGenerator.js';
+import { CAD_HOST_PROTOCOL } from '../js/cadLikeAudioBridge.js';
 
 test('Panel Label Stock Derivation', () => {
   const stock24 = derivePanelLabelStock({ portsPerRow: 24, rackUnits: 1, isBay: false });
@@ -352,4 +354,70 @@ test('CAD Multi-Archetype Faceplate Rendering for All Equipment Models', () => {
   const xlrSvg = renderCadPanelSvg(xlrPanel, { viewMode: 'faceplate' });
   assert.ok(xlrSvg.includes('cad-icon-xlr-f'));
   assert.ok(xlrSvg.includes('Neutrik NEU-0019'));
+});
+
+test('AutoCAD R2000 DXF Generator & CAD.Like.audio Host Bridge', () => {
+  // Test 1: Verify Host Protocol matches ecosystem specification
+  assert.equal(CAD_HOST_PROTOCOL, 'cad.like.audio/host@1');
+
+  // Test 2: Standard 24P 1U D-Series Panel DXF Generation
+  const panel = {
+    name: 'PP-STUDIO-XLR',
+    rackUnits: 1,
+    portsPerRow: 24,
+    hardwareType: 'Termination Panel',
+    ports: Array.from({ length: 24 }, (_, i) => ({
+      portNumber: i + 1,
+      label: `CH ${i + 1}`,
+      connector: 'XLR-F'
+    }))
+  };
+
+  const dxf = generateCadPanelDxf(panel);
+  assert.ok(typeof dxf === 'string');
+  assert.ok(dxf.length > 5000);
+
+  // AutoCAD 2000 Header verification
+  assert.ok(dxf.includes('$ACADVER\n  1\nAC1015'));
+  assert.ok(dxf.includes('$INSUNITS\n 70\n4')); // Millimeters
+  assert.ok(dxf.includes('$MEASUREMENT\n 70\n1')); // Metric
+
+  // Tables & Layers verification
+  assert.ok(dxf.includes('0_PANEL_CHASSIS'));
+  assert.ok(dxf.includes('1_MOUNTING_SLOTS'));
+  assert.ok(dxf.includes('2_BORES_FABRICATION'));
+  assert.ok(dxf.includes('3_SCREW_HOLES'));
+  assert.ok(dxf.includes('4_CROSSHAIRS'));
+  assert.ok(dxf.includes('5_DIMENSIONS_SILKSCREEN'));
+
+  // Blocks section verification
+  assert.ok(dxf.includes('*Model_Space'));
+  assert.ok(dxf.includes('*Paper_Space'));
+
+  // Entities section verification (True circles and lines)
+  assert.ok(dxf.includes('AcDbCircle'));
+  assert.ok(dxf.includes('AcDbLine'));
+  assert.ok(dxf.includes('AcDbText'));
+  assert.ok(dxf.includes('PP-STUDIO-XLR'));
+
+  // EOF marker verification
+  assert.ok(dxf.endsWith('  0\nEOF\n'));
+
+  // Test 3: High Density 48P 2U Bantam Patchbay DXF
+  const bantamPanel = {
+    name: 'PP-MDF-BANTAM',
+    rackUnits: 2,
+    portsPerRow: 24,
+    hardwareType: 'Bantam',
+    ports: Array.from({ length: 48 }, (_, i) => ({
+      portNumber: i + 1,
+      label: `TT-${i + 1}`,
+      connector: 'TT Bantam'
+    }))
+  };
+
+  const bantamDxf = generateCadPanelDxf(bantamPanel);
+  assert.ok(bantamDxf.includes('PP-MDF-BANTAM'));
+  // Bantam Ø6.5mm bores (radius 3.25)
+  assert.ok(bantamDxf.includes('3.2500'));
 });

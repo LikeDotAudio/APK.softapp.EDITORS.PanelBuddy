@@ -19,6 +19,8 @@ import {
   findModel,
   modelToMechanicalPreset,
 } from './patchPanelVendorCatalog.js';
+import { generateCadPanelDxf } from './cadDxfGenerator.js';
+import { downloadPanelDxf, openInCadLikeAudio } from './cadLikeAudioBridge.js';
 
 export class PanelBuddyApp {
   constructor() {
@@ -77,6 +79,8 @@ export class PanelBuddyApp {
     this.btnGeneratePorts = document.getElementById('btn-generate-ports');
     this.btnExportCsv = document.getElementById('btn-export-csv');
     this.btnExportSvg = document.getElementById('btn-export-svg');
+    this.btnExportDxf = document.getElementById('btn-export-dxf');
+    this.btnOpenCad = document.getElementById('btn-open-cad');
     this.btnPrint = document.getElementById('btn-print');
 
     this.btnBatchXlrF = document.getElementById('btn-batch-xlrf');
@@ -268,6 +272,8 @@ export class PanelBuddyApp {
 
     this.btnExportCsv?.addEventListener('click', () => this.exportCsv());
     this.btnExportSvg?.addEventListener('click', () => this.exportCadSvg());
+    this.btnExportDxf?.addEventListener('click', () => this.exportCadDxf());
+    this.btnOpenCad?.addEventListener('click', () => this.openInCad());
     this.btnPrint?.addEventListener('click', () => window.print());
 
     this.btnShuffle?.addEventListener('click', () => this.shufflePorts());
@@ -992,6 +998,14 @@ export class PanelBuddyApp {
     a.download = `${this.panel.name || 'patch_panel'}_cad_${this.viewMode}.svg`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  exportCadDxf() {
+    downloadPanelDxf(this.panel);
+  }
+
+  openInCad() {
+    openInCadLikeAudio(this.panel);
   }
 
   promptOpen() {
