@@ -486,6 +486,8 @@ export const CAD_CONNECTOR_SYMBOLS_SVG = `
 <text x="60" y="64" text-anchor="middle" dominant-baseline="central" fill="#52525b" font-size="14" font-family="monospace" font-weight="bold">BLANK</text></symbol>
 `;
 
+export const CAD_SYMBOLS_SVG_SHEET = CAD_CONNECTOR_SYMBOLS_SVG;
+
 export function getConnectorMeta(id) {
   const clean = String(id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   if (clean.includes("xlrf") || clean === "xlrs" || clean === "xlr3s") return CAD_CONNECTOR_CATALOG.find(c => c.id === "xlr-f");
