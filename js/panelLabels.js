@@ -22,13 +22,13 @@ export function buildPanelLabelStripSvg(panel, stock, options = {}) {
   const cellWidthMm = stock.cell.widthMm;
   const cellHeightMm = stock.cell.heightMm;
 
-  const bgPanel = isDark ? '#121A2F' : '#f8f9fa';
-  const borderPanel = isDark ? '#2D3D60' : '#d0d7de';
-  const cellBg = isDark ? '#0E1424' : '#ffffff';
-  const cellBorder = isDark ? '#1E2A45' : '#e1e4e8';
+  const bgPanel = isDark ? '#18181b' : '#f8f9fa';
+  const borderPanel = isDark ? '#3f3f46' : '#d0d7de';
+  const cellBg = isDark ? '#0f0f11' : '#ffffff';
+  const cellBorder = isDark ? '#2c2c2c' : '#e1e4e8';
   const textPort = isDark ? '#F4902C' : '#d97706';
-  const textLabel = isDark ? '#F0F4F8' : '#1f2937';
-  const textEndpoint = isDark ? '#8B9BB4' : '#6b7280';
+  const textLabel = isDark ? '#f4f4f5' : '#1f2937';
+  const textEndpoint = isDark ? '#888888' : '#6b7280';
 
   const parts = [];
   const svgHeightMm = numRows * (cellHeightMm + 6) + 16;
@@ -37,7 +37,7 @@ export function buildPanelLabelStripSvg(panel, stock, options = {}) {
   parts.push(`<rect x="0" y="0" width="${stripWidthMm}" height="${svgHeightMm}" rx="3" fill="${bgPanel}" stroke="${borderPanel}" stroke-width="0.5"/>`);
 
   // Header line
-  parts.push(`<text x="6" y="8" fill="${isDark ? '#F0F4F8' : '#111'}" font-size="3.5" font-weight="bold" font-family="sans-serif">${esc(panel.name || panel.panelLabel || 'PATCH PANEL')}</text>`);
+  parts.push(`<text x="6" y="8" fill="${isDark ? '#f4f4f5' : '#111'}" font-size="3.5" font-weight="bold" font-family="sans-serif">${esc(panel.name || panel.panelLabel || 'PATCH PANEL')}</text>`);
   parts.push(`<text x="${stripWidthMm - 6}" y="8" fill="${textEndpoint}" font-size="2.8" text-anchor="end" font-family="monospace">${stock.type.portsPerRow}P · ${stock.type.rackUnits}U · ${stock.scribbleMode.toUpperCase()}</text>`);
 
   for (let r = 0; r < numRows; r++) {
