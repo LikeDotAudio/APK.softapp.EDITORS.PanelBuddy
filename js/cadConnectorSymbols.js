@@ -457,25 +457,32 @@ export const CAD_CONNECTOR_SYMBOLS_SVG = `
             stroke-width="0.5"
         />
         
-        {Array.from({ length: 13 }, (_, i) => (
-            <circle
-                key={\`t\${i}\`}
-                cx={25 + i * 5.4}
-                cy="54"
-                r="1.8"
-                fill="url(#cad_dsub25_db25-pin)"
-            />
-        ))}
-        
-        {Array.from({ length: 12 }, (_, i) => (
-            <circle
-                key={\`b\${i}\`}
-                cx={27.7 + i * 5.4}
-                cy="64"
-                r="1.8"
-                fill="url(#cad_dsub25_db25-pin)"
-            />
-        ))}
+        <circle cx="25.0" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="30.4" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="35.8" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="41.2" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="46.6" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="52.0" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="57.4" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="62.8" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="68.2" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="73.6" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="79.0" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="84.4" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="89.8" cy="54" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+
+        <circle cx="27.7" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="33.1" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="38.5" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="43.9" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="49.3" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="54.7" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="60.1" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="65.5" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="70.9" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="76.3" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="81.7" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
+        <circle cx="87.1" cy="64" r="1.8" fill="url(#cad_dsub25_db25-pin)"/>
         
         <circle cx="15" cy="60" r="5.5" fill="url(#cad_dsub25_db25-screw)" />
         <circle cx="15" cy="60" r="3" fill="#888" />

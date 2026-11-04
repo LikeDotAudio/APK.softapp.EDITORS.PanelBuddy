@@ -455,6 +455,42 @@
         </div>
       </div>
 
+      <!-- Hardware & Mechanical Label Definition (Main Editing Page) -->
+      <div class="form-group" style="background: rgba(244,144,44,0.04); border: 1px solid rgba(244,144,44,0.25); border-radius: 4px; padding: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <span style="font-size: 10px; font-weight: 700; color: var(--osc-accent-primary); text-transform: uppercase;">
+            📏 Hardware & Label Specs
+          </span>
+          <span id="badge-hardware-type" style="font-size: 9px; padding: 2px 5px; border-radius: 3px; background: rgba(244,144,44,0.15); color: var(--osc-accent-primary); font-family: var(--font-mono);">Standard</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px; font-size: 11px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="main-input-pitch" style="font-size: 10px; color: var(--osc-text-muted);">Port Pitch (P mm):</label>
+            <input type="number" id="main-input-pitch" class="input input-sm" style="width: 80px;" value="17.5" step="0.1">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="main-input-window-h" style="font-size: 10px; color: var(--osc-text-muted);">Window H (mm):</label>
+            <input type="number" id="main-input-window-h" class="input input-sm" style="width: 80px;" value="9.5" step="0.5">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="main-input-datum" style="font-size: 10px; color: var(--osc-text-muted);">Datum X₀ (mm):</label>
+            <input type="number" id="main-input-datum" class="input input-sm" style="width: 80px;" value="13.75" step="0.1">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="main-input-strip-w" style="font-size: 10px; color: var(--osc-text-muted);">Strip W (mm):</label>
+            <input type="number" id="main-input-strip-w" class="input input-sm" style="width: 80px;" value="430.0" step="0.5">
+          </div>
+          <div>
+            <label for="main-select-retaining" style="font-size: 10px; color: var(--osc-text-muted); display: block; margin-bottom: 2px;">Retaining Mechanism:</label>
+            <select id="main-select-retaining" class="select" style="width: 100%; font-size: 10px;">
+              <option value="slide_in">Slide-in Paper Strip with Clear Cover</option>
+              <option value="snap_in">Snap-in Window Inserts (Modular Bezels)</option>
+              <option value="direct_adhesive">Direct-Adhesive Vinyl / Polyester Strip</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div class="form-group">
         <label>Form Factor</label>
         <div class="chip-bar" id="chips-form">
@@ -538,17 +574,40 @@
 
     <section class="data-grid-panel">
       <div class="data-grid-header">
-        <span style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--osc-text-muted);" id="table-status-label">
-          Panel Connector Positions (Live Editable)
-        </span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="chip-bar" id="chips-table-mode">
+            <div class="chip active" data-table-mode="paired">🔀 Paired Patchbay Schedule (Normalling)</div>
+            <div class="chip" data-table-mode="linear">📋 Linear Port Channels</div>
+          </div>
+          <span style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--osc-text-muted);" id="table-status-label">
+            Circuits & Normalling
+          </span>
+        </div>
         <div style="display:flex; align-items:center; gap:6px;">
           <button class="btn btn-secondary btn-sm" id="btn-generate-ports">Fill Grid to Density</button>
           <button class="btn btn-secondary btn-sm" id="btn-export-csv">Export CSV</button>
-          <button class="btn btn-primary btn-sm" id="btn-add-port">+ Add Port</button>
+          <button class="btn btn-primary btn-sm" id="btn-add-port">+ Add Port / Pair</button>
         </div>
       </div>
       <div class="data-table-container">
-        <table class="port-table">
+        <!-- Paired Patchbay Normalling Table (Audio & Video Patch Panel Designer) -->
+        <table class="port-table" id="table-paired" style="width: 100%;">
+          <thead>
+            <tr>
+              <th class="col-idx text-center">Ch #</th>
+              <th>Top Row (Output / Source)</th>
+              <th>Top Wire Endpoint</th>
+              <th>Bottom Row (Input / Destination)</th>
+              <th>Bottom Wire Endpoint</th>
+              <th style="width: 175px;">Normalling</th>
+              <th class="col-actions">Act</th>
+            </tr>
+          </thead>
+          <tbody id="paired-table-body"></tbody>
+        </table>
+
+        <!-- Linear Single-Port Table -->
+        <table class="port-table" id="table-linear" style="display: none; width: 100%;">
           <thead>
             <tr>
               <th class="col-idx">#</th>

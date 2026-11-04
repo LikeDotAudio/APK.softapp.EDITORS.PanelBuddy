@@ -34,17 +34,21 @@ export function renderCadPanelSvg(panel, options = {}) {
 
   // Hardware model archetype detection
   const hwType = String(panel.hardwareType || panel.type || '').trim().toLowerCase();
-  const isBantam = hwType.includes('bantam');
-  const isJack = hwType.includes('jack') && !isBantam;
+  const hasBantamConn = ports.some(p => String(p.connector || '').toLowerCase().includes('bantam'));
+  const hasTrsConn = ports.some(p => String(p.connector || '').toLowerCase().includes('trs') || String(p.connector || '').toLowerCase().includes('1/4'));
+  const hasNormalling = ports.some(p => p.normalling || p.normalMode);
+  const isBantam = hwType.includes('bantam') || hasBantamConn || (hasNormalling && !hasTrsConn);
+  const isJack = (hwType.includes('jack') || hasTrsConn) && !isBantam;
   const isData = hwType.includes('data') || hwType.includes('keystone');
   const isVideo = hwType.includes('video');
-  const isAudioPatchbay = isBantam || isJack;
+  const isAudioPatchbay = isBantam || isJack || hasNormalling;
 
   // Exact hardware physical pitch and datum offset
-  const hasPhysicalPitch = Boolean(panel.portPitchMm && panel.datumMm);
+  const datumVal = panel.datumMm ?? panel.datumOffsetMm;
+  const hasPhysicalPitch = Boolean(panel.portPitchMm && datumVal);
   const pitchMm = Number(panel.portPitchMm) || (usableWidthMm / portsPerRow);
-  const datumMm = Number(panel.datumMm) || Math.max(6, (usableWidthMm - (portsPerRow - 1) * pitchMm) / 2);
-  const windowHMm = Math.min(11, Number(panel.labelWindowHeightMm) || (isData ? 9.5 : isAudioPatchbay ? 8.0 : 7.5));
+  const datumMm = Number(datumVal) || Math.max(6, (usableWidthMm - (portsPerRow - 1) * pitchMm) / 2);
+  const windowHMm = Math.min(15, Number(panel.labelWindowHeightMm) || (isData ? 9.5 : isAudioPatchbay ? 8.0 : 7.5));
 
   const svgParts = [];
 
@@ -314,11 +318,27 @@ export function renderCadPanelSvg(panel, options = {}) {
         svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${radius}" fill="#27272a" stroke="${strokeColor}" stroke-width="${isSelected ? 0.9 : 0.4}" ${filterAttr}/>`);
         svgParts.push(`<use href="#cad-icon-bantam-tt" x="${cx - radius * 0.9}" y="${cy - radius * 0.9}" width="${radius * 1.8}" height="${radius * 1.8}"/>`);
 
-        // Normalling arrow indicator between Row A and Row B
+        // Normalling indicator between Row A and Row B
         if (r === 0 && numRows === 2) {
           const cyBottom = rackHeightMm - windowHMm - 8.5;
-          svgParts.push(`<line x1="${cx}" y1="${cy + 4.5}" x2="${cx}" y2="${cyBottom - 4.5}" stroke="${isSelected ? '#F4902C' : '#3f3f46'}" stroke-width="0.3" stroke-dasharray="1,1"/>`);
-          svgParts.push(`<polygon points="${cx},${(cy + cyBottom) / 2 + 1} ${cx - 0.8},${(cy + cyBottom) / 2 - 0.8} ${cx + 0.8},${(cy + cyBottom) / 2 - 0.8}" fill="${isSelected ? '#F4902C' : '#71717a'}"/>`);
+          const normMode = String(port.normalling || port.normalMode || 'half').toLowerCase();
+          if (normMode.includes('full')) {
+            // Full normal: green link with switch dot
+            svgParts.push(`<line x1="${cx}" y1="${cy + 4.5}" x2="${cx}" y2="${cyBottom - 4.5}" stroke="#10b981" stroke-width="0.6"/>`);
+            svgParts.push(`<circle cx="${cx}" cy="${(cy + cyBottom) / 2}" r="1.1" fill="#10b981"/>`);
+          } else if (normMode.includes('isolated') || normMode.includes('non')) {
+            // Isolated / Non-Normal: disconnected break
+            svgParts.push(`<line x1="${cx}" y1="${cy + 4.5}" x2="${cx}" y2="${cy + 7}" stroke="#64748b" stroke-width="0.4"/>`);
+            svgParts.push(`<line x1="${cx}" y1="${cyBottom - 7}" x2="${cx}" y2="${cyBottom - 4.5}" stroke="#64748b" stroke-width="0.4"/>`);
+          } else if (normMode.includes('parallel') || normMode.includes('mult')) {
+            // Parallel (Mult): dual amber bus lines
+            svgParts.push(`<line x1="${cx - 0.7}" y1="${cy + 4.5}" x2="${cx - 0.7}" y2="${cyBottom - 4.5}" stroke="#f59e0b" stroke-width="0.5"/>`);
+            svgParts.push(`<line x1="${cx + 0.7}" y1="${cy + 4.5}" x2="${cx + 0.7}" y2="${cyBottom - 4.5}" stroke="#f59e0b" stroke-width="0.5"/>`);
+          } else {
+            // Half normal: directional arrow
+            svgParts.push(`<line x1="${cx}" y1="${cy + 4.5}" x2="${cx}" y2="${cyBottom - 4.5}" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="1.5,1"/>`);
+            svgParts.push(`<polygon points="${cx},${(cy + cyBottom) / 2 + 1.2} ${cx - 0.9},${(cy + cyBottom) / 2 - 0.9} ${cx + 0.9},${(cy + cyBottom) / 2 - 0.9}" fill="#38bdf8"/>`);
+          }
         }
 
         // Port number & label printed on adjacent designation strip
@@ -332,7 +352,17 @@ export function renderCadPanelSvg(panel, options = {}) {
         const filterAttr = isSelected ? 'filter="url(#cad_select_glow)"' : '';
         svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${radius}" fill="#3f3f46" stroke="${isSelected ? '#F4902C' : '#18181b'}" stroke-width="${isSelected ? 1.0 : 0.5}" ${filterAttr}/>`);
         svgParts.push(`<use href="#cad-icon-trs" x="${cx - radius * 0.9}" y="${cy - radius * 0.9}" width="${radius * 1.8}" height="${radius * 1.8}"/>`);
+
+        // Normalling indicator between Row A and Row B for 1/4" bays
+        if (r === 0 && numRows === 2) {
+          const cyBottom = rackHeightMm - windowHMm - 8.5;
+          const normMode = String(port.normalling || port.normalMode || 'half').toLowerCase();
+          const normColor = normMode.includes('full') ? '#10b981' : normMode.includes('isolated') ? '#64748b' : normMode.includes('parallel') ? '#f59e0b' : '#38bdf8';
+          svgParts.push(`<line x1="${cx}" y1="${cy + radius + 1}" x2="${cx}" y2="${cyBottom - radius - 1}" stroke="${normColor}" stroke-width="0.6"/>`);
+        }
+
         svgParts.push(`<text x="${cx}" y="${cy - radius - 1}" fill="${isSelected ? '#F4902C' : '#a1a1aa'}" font-size="2" font-family="monospace" text-anchor="middle">${portNum}</text>`);
+        svgParts.push(`<text x="${cx}" y="${cy + radius + 3.2}" fill="#f4f4f5" font-size="1.9" font-weight="bold" font-family="sans-serif" text-anchor="middle">${esc(label)}</text>`);
 
       } else if (isData) {
         // ── 3. KEYSTONE / RJ45 MODULAR PORT VISUALIZATION ──

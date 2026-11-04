@@ -30,12 +30,13 @@ export class PanelBuddyApp {
       room: 'MDF / RACK-01 · U14',
       formFactor: 'rack', // 'rack' | 'wallplate'
       portsPerRow: 24,
-      rackUnits: 1,
+      rackUnits: 2,
       ports: [],
     };
 
     this.selectedPortIndex = 0;
     this.viewMode = 'faceplate'; // 'faceplate' | 'drill' | 'scribble' | 'labelmaker'
+    this.tableMode = 'paired'; // 'paired' | 'linear'
     this.zoom = 1;
 
     this.activeLabelProfile = { ...LABEL_MECHANICAL_PRESETS[0] };
@@ -74,6 +75,20 @@ export class PanelBuddyApp {
     this.previewStage = document.getElementById('preview-stage');
     this.portTableBody = document.getElementById('port-table-body');
     this.tableStatusLabel = document.getElementById('table-status-label');
+
+    // Main Page Hardware & Label Specs
+    this.mainInputPitch = document.getElementById('main-input-pitch');
+    this.mainInputWindowH = document.getElementById('main-input-window-h');
+    this.mainInputDatum = document.getElementById('main-input-datum');
+    this.mainInputStripW = document.getElementById('main-input-strip-w');
+    this.mainSelectRetaining = document.getElementById('main-select-retaining');
+    this.badgeHardwareType = document.getElementById('badge-hardware-type');
+
+    // Table Mode & Paired Table Elements
+    this.chipsTableMode = document.getElementById('chips-table-mode');
+    this.tablePaired = document.getElementById('table-paired');
+    this.tableLinear = document.getElementById('table-linear');
+    this.pairedTableBody = document.getElementById('paired-table-body');
 
     this.btnAddPort = document.getElementById('btn-add-port');
     this.btnGeneratePorts = document.getElementById('btn-generate-ports');
@@ -246,16 +261,91 @@ export class PanelBuddyApp {
       this.bridge.notifyChanged();
     });
 
-    this.btnAddPort?.addEventListener('click', () => {
-      const nextNum = this.panel.ports.length + 1;
-      this.panel.ports.push({
-        portNumber: nextNum,
-        label: `PORT ${nextNum}`,
-        endpoint: 'STAGE / BOX-01',
-        signal: 'Analog Audio',
-        connector: 'XLR-F',
+    // Table Mode Chips (Paired Patchbay Schedule vs Linear Ports)
+    this.chipsTableMode?.querySelectorAll('.chip').forEach(c => {
+      c.addEventListener('click', () => {
+        this.tableMode = c.dataset.tableMode || 'paired';
+        this.chipsTableMode.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+        this.renderTable();
       });
-      this.selectedPortIndex = this.panel.ports.length - 1;
+    });
+
+    // Main Page Hardware & Label Specs reactive inputs
+    const onMainSpecChange = () => {
+      const pitch = parseFloat(this.mainInputPitch?.value) || 17.5;
+      const windowH = parseFloat(this.mainInputWindowH?.value) || 9.5;
+      const datum = parseFloat(this.mainInputDatum?.value) || 13.75;
+      const stripW = parseFloat(this.mainInputStripW?.value) || 430.0;
+      const retaining = this.mainSelectRetaining?.value || 'slide_in';
+
+      this.activeLabelProfile.pitchMm = pitch;
+      this.activeLabelProfile.heightMm = windowH;
+      this.activeLabelProfile.datumMm = datum;
+      this.activeLabelProfile.widthMm = stripW;
+      this.activeLabelProfile.retaining = retaining;
+
+      this.panel.portPitchMm = pitch;
+      this.panel.labelWindowHeightMm = windowH;
+      this.panel.datumMm = datum;
+      this.panel.datumOffsetMm = datum;
+      this.panel.stripWidthMm = stripW;
+      this.panel.retainingType = retaining;
+
+      if (this.badgeHardwareType) this.badgeHardwareType.textContent = 'Custom Spec';
+
+      if (this.inputGeomPitch) this.inputGeomPitch.value = pitch;
+      if (this.inputGeomHeight) this.inputGeomHeight.value = windowH;
+      if (this.inputGeomDatum) this.inputGeomDatum.value = datum;
+      if (this.inputGeomWidth) this.inputGeomWidth.value = stripW;
+      if (this.selectRetainingType) this.selectRetainingType.value = retaining;
+
+      this.renderPreview();
+      this.bridge.notifyChanged();
+    };
+
+    [this.mainInputPitch, this.mainInputWindowH, this.mainInputDatum, this.mainInputStripW, this.mainSelectRetaining].forEach(el => {
+      el?.addEventListener('input', onMainSpecChange);
+      el?.addEventListener('change', onMainSpecChange);
+    });
+
+    this.btnAddPort?.addEventListener('click', () => {
+      if (this.tableMode === 'paired') {
+        const pairCount = Math.max(1, this.panel.portsPerRow || Math.ceil(this.panel.ports.length / 2));
+        const newCh = pairCount + 1;
+        this.panel.portsPerRow = newCh;
+        const topIdx = newCh - 1;
+        
+        // Insert new top port
+        this.panel.ports.splice(topIdx, 0, {
+          portNumber: topIdx + 1,
+          label: `PREAMP ${newCh}`,
+          endpoint: `MIC-PRE-01 / OUT-${newCh}`,
+          signal: 'Analog Audio',
+          connector: 'TT-Bantam',
+          normalling: 'half',
+        });
+        // Append bottom port
+        this.panel.ports.push({
+          portNumber: this.panel.ports.length + 1,
+          label: `DAW IN ${newCh}`,
+          endpoint: `INTERFACE / IN-${newCh}`,
+          signal: 'Analog Audio',
+          connector: 'TT-Bantam',
+          normalling: 'half',
+        });
+        this.panel.ports.forEach((p, idx) => { p.portNumber = idx + 1; });
+      } else {
+        const nextNum = this.panel.ports.length + 1;
+        this.panel.ports.push({
+          portNumber: nextNum,
+          label: `PORT ${nextNum}`,
+          endpoint: 'STAGE / BOX-01',
+          signal: 'Analog Audio',
+          connector: 'XLR-F',
+        });
+        this.selectedPortIndex = this.panel.ports.length - 1;
+      }
       this.render();
       this.bridge.notifyChanged();
     });
@@ -336,13 +426,36 @@ export class PanelBuddyApp {
 
   syncInputsFromLabelProfile() {
     const p = this.activeLabelProfile;
-    if (this.inputGeomWidth) this.inputGeomWidth.value = p.widthMm;
-    if (this.inputGeomHeight) this.inputGeomHeight.value = p.heightMm;
-    if (this.inputGeomPitch) this.inputGeomPitch.value = p.pitchMm;
-    if (this.inputGeomDatum) this.inputGeomDatum.value = p.datumMm;
+    const pitch = p.pitchMm ?? p.portPitchMm ?? 17.5;
+    const height = p.heightMm ?? p.labelWindowHeightMm ?? 9.5;
+    const datum = p.datumMm ?? p.datumOffsetMm ?? 13.75;
+    const width = p.widthMm ?? p.stripWidthMm ?? 430.0;
+    const retaining = p.retaining ?? p.retainingType ?? 'slide_in';
+
+    // Main editing page sidebar controls
+    if (this.mainInputPitch) this.mainInputPitch.value = pitch;
+    if (this.mainInputWindowH) this.mainInputWindowH.value = height;
+    if (this.mainInputDatum) this.mainInputDatum.value = datum;
+    if (this.mainInputStripW) this.mainInputStripW.value = width;
+    if (this.mainSelectRetaining) this.mainSelectRetaining.value = retaining;
+    if (this.badgeHardwareType) this.badgeHardwareType.textContent = p.name ? p.name.split(' ')[0] : 'Standard';
+
+    // Modal controls
+    if (this.inputGeomWidth) this.inputGeomWidth.value = width;
+    if (this.inputGeomHeight) this.inputGeomHeight.value = height;
+    if (this.inputGeomPitch) this.inputGeomPitch.value = pitch;
+    if (this.inputGeomDatum) this.inputGeomDatum.value = datum;
     if (this.inputGeomBlocks) this.inputGeomBlocks.value = p.modularBlocks || 1;
     if (this.inputGeomBlockgap) this.inputGeomBlockgap.value = p.blockGapMm || 0;
-    if (this.selectRetainingType) this.selectRetainingType.value = p.retaining || 'slide_in';
+    if (this.selectRetainingType) this.selectRetainingType.value = retaining;
+
+    // Sync to panel
+    this.panel.portPitchMm = pitch;
+    this.panel.labelWindowHeightMm = height;
+    this.panel.datumMm = datum;
+    this.panel.datumOffsetMm = datum;
+    this.panel.stripWidthMm = width;
+    this.panel.retainingType = retaining;
   }
 
   openLabelMaker() {
@@ -578,13 +691,29 @@ export class PanelBuddyApp {
 
   generateDefaultPanel() {
     this.panel.ports = [];
-    for (let i = 1; i <= 24; i++) {
+    const pairCount = 24;
+    this.panel.portsPerRow = pairCount;
+    this.panel.rackUnits = 2;
+    // Row A (Top - Outputs)
+    for (let i = 1; i <= pairCount; i++) {
       this.panel.ports.push({
         portNumber: i,
-        label: `CH ${i.toString().padStart(2, '0')}`,
-        endpoint: i <= 16 ? `STAGEBOX A / IN-${i}` : `FOH CONSOLE / OUT-${i - 16}`,
-        signal: i <= 16 ? 'Mic Analog' : 'Line Analog',
-        connector: i <= 16 ? 'XLR-F' : 'XLR-M',
+        label: `PREAMP ${i}`,
+        endpoint: `MIC-PRE-01 / OUT-${i}`,
+        signal: 'Analog Audio',
+        connector: 'TT-Bantam',
+        normalling: i <= 16 ? 'half' : 'full',
+      });
+    }
+    // Row B (Bottom - Inputs)
+    for (let i = 1; i <= pairCount; i++) {
+      this.panel.ports.push({
+        portNumber: pairCount + i,
+        label: `DAW IN ${i}`,
+        endpoint: `INTERFACE / IN-${i}`,
+        signal: 'Analog Audio',
+        connector: 'TT-Bantam',
+        normalling: i <= 16 ? 'half' : 'full',
       });
     }
     this.selectedPortIndex = 0;
@@ -645,22 +774,51 @@ export class PanelBuddyApp {
     this.panel.id = block.id || this.panel.id;
     this.panel.name = block.name || block.panelLabel || this.panel.name;
     this.panel.room = block.room || (Array.isArray(block.roomPath) ? block.roomPath.join(' > ') : this.panel.room);
-    this.panel.portsPerRow = block.portsPerRow || this.panel.portsPerRow;
-    this.panel.rackUnits = block.rackUnits || this.panel.rackUnits;
+    this.panel.portsPerRow = block.portsPerRow || (block.pairCount ? block.pairCount : this.panel.portsPerRow);
+    this.panel.rackUnits = block.rackUnits || (block.pairCount ? 2 : this.panel.rackUnits);
     this.panel.formFactor = block.formFactor || this.panel.formFactor;
 
-    if (Array.isArray(block.ports)) {
+    if (Array.isArray(block.pairs) && block.pairs.length > 0) {
+      this.tableMode = 'paired';
+      const pairCount = block.pairs.length;
+      this.panel.portsPerRow = pairCount;
+      this.panel.rackUnits = Math.max(1, block.rackUnits || 2);
+      this.panel.ports = [];
+      // Row 1 (Outputs)
+      block.pairs.forEach((p, idx) => {
+        this.panel.ports.push({
+          portNumber: idx + 1,
+          label: p.topLabel || `CH ${p.ch || idx + 1}`,
+          endpoint: p.topEndpoint || '',
+          signal: p.topSignal || 'Analog Audio',
+          connector: p.connector || 'TT-Bantam',
+          normalling: p.normalling || p.normalMode || 'half'
+        });
+      });
+      // Row 2 (Inputs)
+      block.pairs.forEach((p, idx) => {
+        this.panel.ports.push({
+          portNumber: pairCount + idx + 1,
+          label: p.bottomLabel || `CH ${p.ch || idx + 1} (IN)`,
+          endpoint: p.bottomEndpoint || '',
+          signal: p.bottomSignal || 'Analog Audio',
+          connector: p.connector || 'TT-Bantam',
+          normalling: p.normalling || p.normalMode || 'half'
+        });
+      });
+    } else if (Array.isArray(block.ports)) {
       this.panel.ports = block.ports.map((p, idx) => ({
         portNumber: p.portNumber ?? (idx + 1),
         label: p.label || p.portLabel || `P${idx + 1}`,
         endpoint: p.endpoint || p.destination || p.outputTo || '',
         signal: p.signal || 'Analog Audio',
         connector: p.connector || 'XLR-F',
+        normalling: p.normalling || p.normalMode || 'half',
       }));
     }
 
-    this.inputPanelName.value = this.panel.name;
-    this.inputPanelRoom.value = this.panel.room;
+    if (this.inputPanelName) this.inputPanelName.value = this.panel.name;
+    if (this.inputPanelRoom) this.inputPanelRoom.value = this.panel.room;
     this.updateChipsState();
     this.render();
   }
@@ -744,12 +902,25 @@ export class PanelBuddyApp {
     this.renderPreview();
 
     // Highlight row in table and scroll into view
-    this.portTableBody.querySelectorAll('tr').forEach((tr, rIdx) => {
-      tr.classList.toggle('selected', rIdx === idx);
-      if (rIdx === idx) {
-        tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    });
+    if (this.portTableBody) {
+      this.portTableBody.querySelectorAll('tr').forEach((tr, rIdx) => {
+        tr.classList.toggle('selected', rIdx === idx);
+        if (rIdx === idx) {
+          tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      });
+    }
+
+    if (this.pairedTableBody) {
+      const pairCount = Math.max(1, this.panel.portsPerRow || Math.ceil(this.panel.ports.length / 2));
+      const pairedRowIdx = idx % pairCount;
+      this.pairedTableBody.querySelectorAll('tr').forEach((tr, rIdx) => {
+        tr.classList.toggle('selected', rIdx === pairedRowIdx);
+        if (rIdx === pairedRowIdx) {
+          tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      });
+    }
 
     const p = this.panel.ports[idx];
     if (this.tableStatusLabel && p) {
@@ -757,7 +928,224 @@ export class PanelBuddyApp {
     }
   }
 
+  getPairs() {
+    const pairCount = Math.max(1, this.panel.portsPerRow || Math.ceil(this.panel.ports.length / 2));
+    const pairs = [];
+    for (let ch = 1; ch <= pairCount; ch++) {
+      const topIdx = ch - 1;
+      const botIdx = topIdx + pairCount;
+      const top = this.panel.ports[topIdx];
+      const bot = this.panel.ports[botIdx];
+      pairs.push({
+        ch,
+        channel: ch,
+        topLabel: top?.label || `OUT ${ch}`,
+        topEndpoint: top?.endpoint || '',
+        topSignal: top?.signal || 'Analog Audio',
+        bottomLabel: bot?.label || `IN ${ch}`,
+        bottomEndpoint: bot?.endpoint || '',
+        bottomSignal: bot?.signal || 'Analog Audio',
+        normalling: top?.normalling || bot?.normalling || 'half',
+      });
+    }
+    return pairs;
+  }
+
   renderTable() {
+    if (this.tableMode === 'paired') {
+      if (this.tablePaired) this.tablePaired.style.display = 'table';
+      if (this.tableLinear) this.tableLinear.style.display = 'none';
+      this.renderPairedTable();
+    } else {
+      if (this.tablePaired) this.tablePaired.style.display = 'none';
+      if (this.tableLinear) this.tableLinear.style.display = 'table';
+      this.renderLinearTable();
+    }
+  }
+
+  renderPairedTable() {
+    if (!this.pairedTableBody) return;
+    this.pairedTableBody.innerHTML = '';
+
+    const pairCount = Math.max(1, this.panel.portsPerRow || Math.ceil(this.panel.ports.length / 2));
+
+    // Ensure ports array has enough items for both rows
+    const totalNeeded = pairCount * 2;
+    while (this.panel.ports.length < totalNeeded) {
+      const idx = this.panel.ports.length;
+      const isTop = idx < pairCount;
+      const ch = (idx % pairCount) + 1;
+      this.panel.ports.push({
+        portNumber: idx + 1,
+        label: isTop ? `PREAMP ${ch}` : `DAW IN ${ch}`,
+        endpoint: isTop ? `MIC-PRE-01 / OUT-${ch}` : `INTERFACE / IN-${ch}`,
+        signal: 'Analog Audio',
+        connector: 'TT-Bantam',
+        normalling: ch <= 16 ? 'half' : 'full'
+      });
+    }
+
+    for (let ch = 1; ch <= pairCount; ch++) {
+      const topIdx = ch - 1;
+      const botIdx = topIdx + pairCount;
+      const top = this.panel.ports[topIdx];
+      const bot = this.panel.ports[botIdx];
+
+      const tr = document.createElement('tr');
+      const isSelected = this.selectedPortIndex === topIdx || this.selectedPortIndex === botIdx;
+      if (isSelected) tr.classList.add('selected');
+
+      tr.addEventListener('click', (e) => {
+        if (!['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName)) {
+          this.selectPort(topIdx);
+        }
+      });
+
+      // 1. Ch #
+      const tdCh = document.createElement('td');
+      tdCh.className = 'col-idx text-center';
+      tdCh.innerHTML = `<span style="font-weight:bold; color:var(--osc-accent-primary); font-family:var(--font-mono);">${ch}</span>`;
+      tr.appendChild(tdCh);
+
+      // 2. Top Label (Output / Source)
+      const tdTopLbl = document.createElement('td');
+      const inputTopLbl = document.createElement('input');
+      inputTopLbl.type = 'text';
+      inputTopLbl.className = 'cell-input';
+      inputTopLbl.value = top.label || '';
+      inputTopLbl.placeholder = `Top Label ${ch}`;
+      inputTopLbl.addEventListener('focus', () => { this.selectedPortIndex = topIdx; this.renderPreview(); });
+      inputTopLbl.addEventListener('input', (e) => {
+        top.label = e.target.value;
+        this.renderPreview();
+        this.bridge.notifyChanged();
+      });
+      tdTopLbl.appendChild(inputTopLbl);
+      tr.appendChild(tdTopLbl);
+
+      // 3. Top Wire Endpoint
+      const tdTopEnd = document.createElement('td');
+      const inputTopEnd = document.createElement('input');
+      inputTopEnd.type = 'text';
+      inputTopEnd.className = 'cell-input';
+      inputTopEnd.value = top.endpoint || '';
+      inputTopEnd.placeholder = `e.g. MIC-PRE-01 / OUT-${ch}`;
+      inputTopEnd.addEventListener('focus', () => { this.selectedPortIndex = topIdx; this.renderPreview(); });
+      inputTopEnd.addEventListener('input', (e) => {
+        top.endpoint = e.target.value;
+        this.renderPreview();
+        this.bridge.notifyChanged();
+      });
+      tdTopEnd.appendChild(inputTopEnd);
+      tr.appendChild(tdTopEnd);
+
+      // 4. Bottom Label (Input / Destination)
+      const tdBotLbl = document.createElement('td');
+      const inputBotLbl = document.createElement('input');
+      inputBotLbl.type = 'text';
+      inputBotLbl.className = 'cell-input';
+      inputBotLbl.value = bot.label || '';
+      inputBotLbl.placeholder = `Bottom Label ${ch}`;
+      inputBotLbl.addEventListener('focus', () => { this.selectedPortIndex = botIdx; this.renderPreview(); });
+      inputBotLbl.addEventListener('input', (e) => {
+        bot.label = e.target.value;
+        this.renderPreview();
+        this.bridge.notifyChanged();
+      });
+      tdBotLbl.appendChild(inputBotLbl);
+      tr.appendChild(tdBotLbl);
+
+      // 5. Bottom Wire Endpoint
+      const tdBotEnd = document.createElement('td');
+      const inputBotEnd = document.createElement('input');
+      inputBotEnd.type = 'text';
+      inputBotEnd.className = 'cell-input';
+      inputBotEnd.value = bot.endpoint || '';
+      inputBotEnd.placeholder = `e.g. INTERFACE / IN-${ch}`;
+      inputBotEnd.addEventListener('focus', () => { this.selectedPortIndex = botIdx; this.renderPreview(); });
+      inputBotEnd.addEventListener('input', (e) => {
+        bot.endpoint = e.target.value;
+        this.renderPreview();
+        this.bridge.notifyChanged();
+      });
+      tdBotEnd.appendChild(inputBotEnd);
+      tr.appendChild(tdBotEnd);
+
+      // 6. Normalling
+      const tdNorm = document.createElement('td');
+      const selNorm = document.createElement('select');
+      selNorm.className = 'cell-select';
+      const normOptions = [
+        { id: 'half', label: 'Half Normal' },
+        { id: 'full', label: 'Full Normal' },
+        { id: 'parallel', label: 'Parallel (Mult)' },
+        { id: 'isolated', label: 'Non-Normal (Isolated)' }
+      ];
+      const curNorm = String(top.normalling || bot.normalling || 'half').toLowerCase();
+      normOptions.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.id;
+        option.textContent = opt.label;
+        if (curNorm.includes(opt.id)) option.selected = true;
+        selNorm.appendChild(option);
+      });
+
+      selNorm.addEventListener('change', (e) => {
+        const mode = e.target.value;
+        top.normalling = mode;
+        bot.normalling = mode;
+        top.normalMode = mode;
+        bot.normalMode = mode;
+        this.renderPreview();
+        this.bridge.notifyChanged();
+      });
+      tdNorm.appendChild(selNorm);
+      tr.appendChild(tdNorm);
+
+      // 7. Actions (Swap In/Out, Clear)
+      const tdAct = document.createElement('td');
+      tdAct.className = 'col-actions';
+      tdAct.style.display = 'flex';
+      tdAct.style.gap = '4px';
+
+      const btnSwap = document.createElement('button');
+      btnSwap.className = 'btn-icon';
+      btnSwap.title = 'Swap Top and Bottom Ports';
+      btnSwap.textContent = '🔄';
+      btnSwap.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tmpLbl = top.label;
+        top.label = bot.label;
+        bot.label = tmpLbl;
+        const tmpEnd = top.endpoint;
+        top.endpoint = bot.endpoint;
+        bot.endpoint = tmpEnd;
+        this.render();
+        this.bridge.notifyChanged();
+      });
+
+      const btnClr = document.createElement('button');
+      btnClr.className = 'btn-icon';
+      btnClr.title = 'Clear Wire Endpoints';
+      btnClr.textContent = '🧹';
+      btnClr.addEventListener('click', (e) => {
+        e.stopPropagation();
+        top.endpoint = '';
+        bot.endpoint = '';
+        this.render();
+        this.bridge.notifyChanged();
+      });
+
+      tdAct.appendChild(btnSwap);
+      tdAct.appendChild(btnClr);
+      tr.appendChild(tdAct);
+
+      this.pairedTableBody.appendChild(tr);
+    }
+  }
+
+  renderLinearTable() {
+    if (!this.portTableBody) return;
     this.portTableBody.innerHTML = '';
 
     this.panel.ports.forEach((port, idx) => {
@@ -953,20 +1341,51 @@ export class PanelBuddyApp {
   }
 
   saveBlock() {
+    const isPaired = this.tableMode === 'paired';
     const block = {
-      type: 'panel',
+      type: isPaired ? 'patch_panel' : 'panel',
       id: this.panel.id,
       name: this.panel.name,
       room: this.panel.room,
       formFactor: this.panel.formFactor,
       portsPerRow: this.panel.portsPerRow,
       rackUnits: this.panel.rackUnits,
+      pairCount: this.panel.portsPerRow,
+      pairs: this.getPairs(),
       ports: this.panel.ports,
+      timestamp: new Date().toISOString()
     };
     this.bridge.saveBlock(block, { filename: `panel_${this.panel.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}` });
   }
 
   exportCsv() {
+    if (this.tableMode === 'paired') {
+      const headers = ['Channel', 'Top Label (Output/Source)', 'Top Wire Endpoint', 'Bottom Label (Input/Destination)', 'Bottom Wire Endpoint', 'Normalling'];
+      const pairCount = Math.max(1, this.panel.portsPerRow || Math.ceil(this.panel.ports.length / 2));
+      const rows = [];
+      for (let ch = 1; ch <= pairCount; ch++) {
+        const top = this.panel.ports[ch - 1] || {};
+        const bot = this.panel.ports[ch - 1 + pairCount] || {};
+        rows.push([
+          ch,
+          `"${top.label || ''}"`,
+          `"${top.endpoint || ''}"`,
+          `"${bot.label || ''}"`,
+          `"${bot.endpoint || ''}"`,
+          `"${top.normalling || bot.normalling || 'half'}"`
+        ]);
+      }
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${this.panel.name || 'patchbay'}_schedule.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
     const headers = ['Port Number', 'Connector', 'Port Label', 'Destination', 'Signal Format'];
     const rows = this.panel.ports.map(p => [
       p.portNumber,

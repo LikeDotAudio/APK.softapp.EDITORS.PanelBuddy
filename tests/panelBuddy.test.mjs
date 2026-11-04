@@ -421,3 +421,48 @@ test('AutoCAD R2000 DXF Generator & CAD.Like.audio Host Bridge', () => {
   // Bantam Ø6.5mm bores (radius 3.25)
   assert.ok(bantamDxf.includes('3.2500'));
 });
+
+test('Paired Patchbay Schedule & Normalling Visualizer Synchronization', () => {
+  // Test paired patchbay with 24 channels (48 jacks)
+  const patchbayPanel = {
+    name: 'AUDIO-PB01',
+    rackUnits: 2,
+    portsPerRow: 24,
+    hardwareType: 'Bantam',
+    ports: []
+  };
+
+  for (let i = 1; i <= 24; i++) {
+    patchbayPanel.ports.push({
+      portNumber: i,
+      label: `PREAMP ${i}`,
+      endpoint: `MIC-PRE-01 / OUT-${i}`,
+      connector: 'TT-Bantam',
+      normalling: i <= 16 ? 'half' : 'full'
+    });
+  }
+  for (let i = 1; i <= 24; i++) {
+    patchbayPanel.ports.push({
+      portNumber: 24 + i,
+      label: `DAW IN ${i}`,
+      endpoint: `INTERFACE / IN-${i}`,
+      connector: 'TT-Bantam',
+      normalling: i <= 16 ? 'half' : 'full'
+    });
+  }
+
+  const svg = renderCadPanelSvg(patchbayPanel, { viewMode: 'faceplate' });
+
+  // Half-normal dashed line and arrow polygon
+  assert.ok(svg.includes('stroke="#38bdf8"'));
+  assert.ok(svg.includes('stroke-dasharray="1.5,1"'));
+  assert.ok(svg.includes('<polygon points='));
+
+  // Full-normal solid line and contact circle dot
+  assert.ok(svg.includes('stroke="#10b981"'));
+  assert.ok(svg.includes('<circle cx=') && svg.includes('fill="#10b981"'));
+
+  // Row A and Row B headers
+  assert.ok(svg.includes('ROW A · OUTPUTS'));
+  assert.ok(svg.includes('ROW B · INPUTS'));
+});
