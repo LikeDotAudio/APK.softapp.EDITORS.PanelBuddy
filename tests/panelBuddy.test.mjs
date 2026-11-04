@@ -8,6 +8,8 @@ import {
   derivePanelLabelStock, pitchInFor, rowsFor, scaleSummary, buildScaleRulerHtml,
 } from '../js/panelLabelStock.js';
 import { buildPanelLabelStripSvg } from '../js/panelLabels.js';
+import { CAD_CONNECTOR_CATALOG, getConnectorMeta } from '../js/cadConnectorSymbols.js';
+import { renderCadPanelSvg } from '../js/cadPanelVisualizer.js';
 
 test('Panel Label Stock Derivation', () => {
   const stock24 = derivePanelLabelStock({ portsPerRow: 24, rackUnits: 1, isBay: false });
@@ -54,4 +56,42 @@ test('SVG Strip Preview Generation', () => {
   assert.ok(svg.includes('MIC-1'));
   assert.ok(svg.includes('DSP-01'));
   assert.ok(svg.endsWith('</svg>'));
+});
+
+test('CAD Vector Connector Catalog & Resolution', () => {
+  assert.ok(CAD_CONNECTOR_CATALOG.length >= 12);
+  const xlrF = getConnectorMeta('XLR-F');
+  assert.equal(xlrF.id, 'xlr-f');
+  assert.equal(xlrF.label, 'XLR Female');
+
+  const bnc = getConnectorMeta('BNC');
+  assert.equal(bnc.id, 'bnc');
+
+  const ethercon = getConnectorMeta('EtherCON');
+  assert.equal(ethercon.id, 'ethercon');
+});
+
+test('CAD 19-Inch Panel Visualizer Faceplate & Blueprint Rendering', () => {
+  const panel = {
+    name: 'PP-STUDIO-A',
+    room: 'CR-01 RACK 02',
+    portsPerRow: 24,
+    rackUnits: 1,
+    ports: [
+      { portNumber: 1, label: 'KICK IN', endpoint: 'STAGEBOX-A', connector: 'XLR-F' },
+      { portNumber: 2, label: 'SNARE TOP', endpoint: 'STAGEBOX-A', connector: 'XLR-F' },
+      { portNumber: 24, label: 'DANTE PRI', endpoint: 'CISCO SG350', connector: 'EtherCON' },
+    ],
+  };
+
+  const svgFaceplate = renderCadPanelSvg(panel, { viewMode: 'faceplate', selectedPortIndex: 0 });
+  assert.ok(svgFaceplate.includes('PP-STUDIO-A'));
+  assert.ok(svgFaceplate.includes('482.6')); // 19 inch width
+  assert.ok(svgFaceplate.includes('cad-icon-xlr-f'));
+  assert.ok(svgFaceplate.includes('cad-icon-ethercon'));
+  assert.ok(svgFaceplate.includes('KICK IN'));
+
+  const svgDrill = renderCadPanelSvg(panel, { viewMode: 'drill' });
+  assert.ok(svgDrill.includes('FABRICATION BLUEPRINT'));
+  assert.ok(svgDrill.includes('BORE: Ø24.0mm'));
 });

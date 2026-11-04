@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel Buddy & Scribble Strip Editor · Standalone Block Editor</title>
+  <title>Panel Buddy & 19″ Rack CAD Builder · Standalone Editor</title>
   <link rel="stylesheet" href="./vendor/apk-contracts/apk-tokens.css">
   <link rel="stylesheet" href="./css/theme.css">
   <style>
     .panel-container {
       display: grid;
-      grid-template-columns: 360px 1fr;
-      grid-template-rows: 1fr 240px;
-      height: calc(100vh - 40px);
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: 1fr 260px;
+      height: calc(100vh - 36px);
       overflow: hidden;
     }
 
@@ -22,23 +22,54 @@
       background: var(--osc-bg-surface);
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      padding: 14px;
+      gap: 12px;
+      padding: 12px;
       overflow-y: auto;
     }
 
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 4px;
     }
 
     .form-group label {
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 10px;
+      font-weight: 700;
       color: var(--osc-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
+    }
+
+    .chip-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .chip {
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 4px;
+      background: var(--osc-bg-input);
+      border: 1px solid var(--osc-border-default);
+      color: var(--osc-text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .chip:hover {
+      border-color: var(--osc-border-light);
+      background: var(--osc-bg-surface-hover);
+    }
+
+    .chip.active {
+      background: var(--osc-accent-primary);
+      color: #111111;
+      border-color: var(--osc-accent-primary);
+      font-weight: 700;
     }
 
     .preview-panel {
@@ -51,67 +82,69 @@
     }
 
     .preview-header {
-      height: 36px;
+      height: 38px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 12px;
       border-bottom: 1px solid var(--osc-border-default);
       background: var(--osc-bg-surface);
+      gap: 12px;
     }
 
     .preview-stage {
       flex: 1;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 16px;
       overflow: auto;
       background: radial-gradient(circle at 50% 50%, #1e1e24 0%, #121212 100%);
+      position: relative;
     }
 
     .preview-stage svg {
-      max-width: 95%;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      max-width: 98%;
+      max-height: 94%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.7);
       border-radius: 4px;
     }
 
-    .ruler-wrap {
-      margin-top: 10px;
+    .connector-palette-bar {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      width: 100%;
+      gap: 5px;
+      padding: 6px 12px;
+      background: #141416;
+      border-bottom: 1px solid var(--osc-border-default);
+      overflow-x: auto;
+      white-space: nowrap;
     }
 
-    .ruler {
-      position: relative;
-      width: 254px; /* exactly 10 inches at 25.4px/in or 100mm scaled */
-      height: 14px;
-      background: var(--osc-bg-input);
-      border: 1px solid var(--osc-border-default);
-      border-radius: 2px;
-    }
-
-    .tick {
-      position: absolute;
-      top: 0;
-      width: 1px;
-      height: 6px;
-      background: var(--osc-border-light);
-    }
-
-    .tick.major {
-      height: 12px;
-      background: var(--osc-accent-primary);
-    }
-
-    .ruler-cap {
+    .conn-palette-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
       font-size: 10px;
-      color: var(--osc-text-muted);
-      margin-top: 4px;
-      font-family: var(--font-mono);
+      font-weight: 600;
+      border-radius: 4px;
+      background: var(--osc-bg-surface);
+      border: 1px solid var(--osc-border-default);
+      color: var(--osc-text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .conn-palette-btn:hover {
+      border-color: var(--osc-accent-primary);
+      color: var(--osc-accent-primary);
+    }
+
+    .conn-palette-btn.active {
+      border-color: var(--osc-accent-primary);
+      background: rgba(244, 144, 44, 0.15);
+      color: var(--osc-accent-primary);
     }
 
     .data-grid-panel {
@@ -162,6 +195,14 @@
       border-bottom: 1px solid var(--osc-border-default);
     }
 
+    table.port-table tr.selected {
+      background: rgba(244, 144, 44, 0.12);
+    }
+
+    table.port-table tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
     .cell-input {
       width: 100%;
       background: transparent;
@@ -179,26 +220,31 @@
       outline: none;
     }
 
-    .text-center {
-      text-align: center;
+    .cell-select {
+      width: 100%;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--osc-text-primary);
+      padding: 4px 6px;
+      font-size: 11px;
+      border-radius: 2px;
+      font-family: inherit;
+      cursor: pointer;
     }
 
-    .col-idx {
-      width: 50px;
+    .cell-select:focus, .cell-select:hover {
+      background: var(--osc-bg-input);
+      border-color: var(--osc-border-light);
     }
 
-    .col-actions {
-      width: 45px;
-      text-align: center;
-    }
+    .text-center { text-align: center; }
+    .col-idx { width: 50px; text-align: center; }
+    .col-conn { width: 140px; }
+    .col-actions { width: 45px; text-align: center; }
 
     @media print {
-      body * {
-        visibility: hidden;
-      }
-      .preview-stage, .preview-stage * {
-        visibility: visible;
-      }
+      body * { visibility: hidden; }
+      .preview-stage, .preview-stage * { visibility: visible; }
       .preview-stage {
         position: absolute;
         left: 0;
@@ -210,12 +256,12 @@
     }
   </style>
 </head>
-<body class="theme-deep-horizon">
+<body>
   <header class="app-window-header">
     <div class="window-title-group">
       <span class="window-dot"></span>
-      <span class="window-title">Panel Label Buddy</span>
-      <span class="window-pill" id="block-tag">STANDALONE BLOCK EDITOR</span>
+      <span class="window-title">Panel Buddy & 19″ Rack CAD Builder</span>
+      <span class="window-pill" id="block-tag">CAD CONNECTOR VISUALIZER</span>
     </div>
     <div class="window-actions">
       <button class="btn btn-secondary" id="btn-sync-discovered" title="Load live panel from Discovered Project">
@@ -234,13 +280,26 @@
   <div class="panel-container">
     <aside class="panel-sidebar">
       <div class="form-group">
-        <label for="input-panel-name">Panel Name / Tag</label>
+        <label for="input-panel-name">Panel Label / Tag</label>
         <input type="text" id="input-panel-name" class="input" value="PP-AUDIO-01">
       </div>
 
       <div class="form-group">
-        <label for="input-panel-room">Location / Room Path</label>
-        <input type="text" id="input-panel-room" class="input" value="MDF / RACK-01">
+        <label for="input-panel-room">Rack Location / Room</label>
+        <input type="text" id="input-panel-room" class="input" value="MDF / RACK-01 · U14">
+      </div>
+
+      <div class="form-group">
+        <label>Form Factor</label>
+        <div class="chip-bar" id="chips-form">
+          <div class="chip active" data-form="rack">19″ Rack Panel</div>
+          <div class="chip" data-form="wallplate">Wall Plate</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Rack Units (RU Height)</label>
+        <div class="chip-bar" id="chips-ru"></div>
       </div>
 
       <div class="form-group">
@@ -248,52 +307,56 @@
         <div class="chip-bar" id="chips-ppr"></div>
       </div>
 
-      <div class="form-group">
-        <label>Rack Units (RU)</label>
-        <div class="chip-bar" id="chips-ru"></div>
-      </div>
-
-      <div class="form-group">
-        <label>Scribble Strip Style</label>
-        <div class="chip-bar" id="chips-mode">
-          <div class="chip active" data-mode="inserts">Paper Inserts (0.39″)</div>
-          <div class="chip" data-mode="etched">Laser Etched (0.50″)</div>
+      <div class="form-group" style="margin-top:4px;">
+        <label>Batch Connector Fill</label>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <button class="btn btn-secondary btn-sm" id="btn-batch-xlrf">Fill All: XLR Female</button>
+          <button class="btn btn-secondary btn-sm" id="btn-batch-ethercon">Fill All: EtherCON RJ45</button>
+          <button class="btn btn-secondary btn-sm" id="btn-batch-bnc">Fill All: BNC 75Ω</button>
+          <button class="btn btn-secondary btn-sm" id="btn-batch-split">Split 50/50: XLR-F / XLR-M</button>
         </div>
       </div>
 
-      <div class="form-group">
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-          <input type="checkbox" id="chk-bay">
-          <span>48-Point Video Bay (Mid-Split Pitch)</span>
-        </label>
-      </div>
-
-      <div style="background:var(--osc-bg-input); border:1px solid var(--osc-border-default); border-radius:4px; padding:10px; margin-top:auto;">
-        <div style="font-size:10px; font-weight:700; color:var(--osc-accent-primary); text-transform:uppercase; margin-bottom:4px;">Geometry Readout</div>
+      <div style="background:var(--osc-bg-input); border:1px solid var(--osc-border-default); border-radius:4px; padding:8px; margin-top:auto;">
+        <div style="font-size:10px; font-weight:700; color:var(--osc-accent-primary); text-transform:uppercase; margin-bottom:4px;">EIA-310-D Specs</div>
         <div id="geometry-summary" style="font-size:11px; font-family:var(--font-mono); color:var(--osc-text-muted); line-height:1.4;">
-          24-port · 1U · cell 0.73″ × 0.39″ · 1:1
+          19.0″ (482.6mm) · 1U (44.45mm) · 24 D-Bores
         </div>
       </div>
     </aside>
 
     <main class="preview-panel">
       <div class="preview-header">
-        <span style="font-size:12px; font-weight:600; color:var(--osc-text-primary);">
-          Physical Strip Preview (1:1 Calibrated Scale)
-        </span>
-        <button class="btn btn-primary btn-sm" id="btn-print">
-          <span class="btn-icon">🖨</span> Print 1:1 Scale
-        </button>
+        <div class="chip-bar" id="chips-view">
+          <div class="chip active" data-view="faceplate">🎛️ CAD Faceplate</div>
+          <div class="chip" data-view="drill">📐 Drill Blueprint</div>
+          <div class="chip" data-view="scribble">🏷️ Scribble Inserts</div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+          <button class="btn btn-secondary btn-sm" id="btn-export-svg" title="Download standalone CAD SVG">
+            <span>📐 Export SVG</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-print" title="Print 1:1 scale template">
+            <span>🖨️ Print 1:1</span>
+          </button>
+        </div>
       </div>
+
+      <div class="connector-palette-bar" id="connector-palette">
+        <span style="font-size:10px; font-weight:700; color:var(--osc-text-muted); margin-right:4px;">CAD CONNECTORS:</span>
+        <!-- Populated dynamically with CAD connector badges -->
+      </div>
+
       <div class="preview-stage" id="preview-stage"></div>
     </main>
 
     <section class="data-grid-panel">
       <div class="data-grid-header">
-        <span style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--osc-text-muted);">
-          Panel Port List (Live Editable)
+        <span style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--osc-text-muted);" id="table-status-label">
+          Panel Connector Positions (Live Editable)
         </span>
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:6px;">
           <button class="btn btn-secondary btn-sm" id="btn-generate-ports">Fill Grid to Density</button>
           <button class="btn btn-secondary btn-sm" id="btn-export-csv">Export CSV</button>
           <button class="btn btn-primary btn-sm" id="btn-add-port">+ Add Port</button>
@@ -303,11 +366,11 @@
         <table class="port-table">
           <thead>
             <tr>
-              <th class="col-idx">Port #</th>
-              <th>Port Label</th>
-              <th>Destination / Endpoint</th>
-              <th>Signal Type</th>
-              <th>Connector</th>
+              <th class="col-idx">#</th>
+              <th class="col-conn">CAD Connector Icon</th>
+              <th>Port Label / Channel</th>
+              <th>Destination / Wire Endpoint</th>
+              <th>Signal Format</th>
               <th class="col-actions">Act</th>
             </tr>
           </thead>
