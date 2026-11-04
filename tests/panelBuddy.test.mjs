@@ -95,3 +95,33 @@ test('CAD 19-Inch Panel Visualizer Faceplate & Blueprint Rendering', () => {
   assert.ok(svgDrill.includes('FABRICATION BLUEPRINT'));
   assert.ok(svgDrill.includes('BORE: Ø24.0mm'));
 });
+
+test('Panel Port Shuffling, Reversing and Drag Re-ordering Logic', () => {
+  const ports = [
+    { portNumber: 1, label: 'CH_1', connector: 'XLR-F' },
+    { portNumber: 2, label: 'CH_2', connector: 'XLR-F' },
+    { portNumber: 3, label: 'CH_3', connector: 'BNC' },
+    { portNumber: 4, label: 'CH_4', connector: 'EtherCON' },
+  ];
+
+  // Test drag & drop move (move index 0 to index 2)
+  const moved = [...ports];
+  const item = moved.splice(0, 1)[0];
+  moved.splice(2, 0, item);
+  assert.equal(moved[0].label, 'CH_2');
+  assert.equal(moved[1].label, 'CH_3');
+  assert.equal(moved[2].label, 'CH_1');
+  assert.equal(moved[3].label, 'CH_4');
+
+  // Test reversing
+  const reversed = [...ports].reverse();
+  assert.equal(reversed[0].label, 'CH_4');
+  assert.equal(reversed[3].label, 'CH_1');
+
+  // Test shift left
+  const shiftedLeft = [...ports];
+  const first = shiftedLeft.shift();
+  shiftedLeft.push(first);
+  assert.equal(shiftedLeft[0].label, 'CH_2');
+  assert.equal(shiftedLeft[3].label, 'CH_1');
+});

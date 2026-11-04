@@ -185,8 +185,8 @@ export function renderCadPanelSvg(panel, options = {}) {
       const label = port.label || `P${portNum}`;
       const dest = port.endpoint || '';
 
-      // Port Group with Interactive Events
-      svgParts.push(`<g class="cad-panel-port" data-port-index="${idx}" data-port-num="${portNum}" style="cursor: pointer;">`);
+      // Port Group with Drag & Drop and Interactive Events
+      svgParts.push(`<g class="cad-panel-port" draggable="true" data-port-index="${idx}" data-port-num="${portNum}" style="cursor: grab;">`);
 
       // D-Series Flange Plate (26mm x 31mm, scaled to fit row)
       const flangeW = Math.min(colWidth * 0.92, 26);

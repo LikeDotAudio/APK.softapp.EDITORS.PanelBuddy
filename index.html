@@ -99,7 +99,9 @@
       justify-content: center;
       padding: 16px;
       overflow: auto;
-      background: radial-gradient(circle at 50% 50%, #1e1e24 0%, #121212 100%);
+      background-color: #121212;
+      background-image: radial-gradient(#2c2c2c 1px, transparent 1px);
+      background-size: 20px 20px;
       position: relative;
     }
 
@@ -132,8 +134,13 @@
       background: var(--osc-bg-surface);
       border: 1px solid var(--osc-border-default);
       color: var(--osc-text-primary);
-      cursor: pointer;
+      cursor: grab;
+      user-select: none;
       transition: all 0.15s ease;
+    }
+
+    .conn-palette-btn:active {
+      cursor: grabbing;
     }
 
     .conn-palette-btn:hover {
@@ -145,6 +152,32 @@
       border-color: var(--osc-accent-primary);
       background: rgba(244, 144, 44, 0.15);
       color: var(--osc-accent-primary);
+    }
+
+    .cad-panel-port {
+      transition: all 0.15s ease;
+    }
+
+    .cad-panel-port:hover {
+      filter: drop-shadow(0 0 3px rgba(244, 144, 44, 0.6));
+    }
+
+    .cad-panel-port.drag-over rect {
+      stroke: var(--osc-accent-primary) !important;
+      stroke-width: 2 !important;
+    }
+
+    .port-table tr.draggable-row {
+      cursor: grab;
+    }
+
+    .port-table tr.dragging {
+      opacity: 0.35;
+      background: rgba(244, 144, 44, 0.1);
+    }
+
+    .port-table tr.drag-over {
+      border-top: 2px solid var(--osc-accent-primary);
     }
 
     .data-grid-panel {
@@ -334,6 +367,18 @@
         </div>
 
         <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+          <button class="btn btn-secondary btn-sm" id="btn-shuffle" title="Shuffle / randomize port order">
+            <span>🔀 Shuffle</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-reverse" title="Reverse port sequence">
+            <span>⇄ Reverse</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-shift-left" title="Shift ports left">
+            <span>◀ Shift</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-shift-right" title="Shift ports right">
+            <span>Shift ▶</span>
+          </button>
           <button class="btn btn-secondary btn-sm" id="btn-export-svg" title="Download standalone CAD SVG">
             <span>📐 Export SVG</span>
           </button>
@@ -344,7 +389,7 @@
       </div>
 
       <div class="connector-palette-bar" id="connector-palette">
-        <span style="font-size:10px; font-weight:700; color:var(--osc-text-muted); margin-right:4px;">CAD CONNECTORS:</span>
+        <span style="font-size:10px; font-weight:700; color:var(--osc-accent-primary); margin-right:4px;">🎯 DRAG & DROP ONTO PANEL:</span>
         <!-- Populated dynamically with CAD connector badges -->
       </div>
 

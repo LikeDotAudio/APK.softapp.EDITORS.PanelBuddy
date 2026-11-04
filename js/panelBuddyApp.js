@@ -65,6 +65,11 @@ export class PanelBuddyApp {
     this.btnBatchEthercon = document.getElementById('btn-batch-ethercon');
     this.btnBatchBnc = document.getElementById('btn-batch-bnc');
     this.btnBatchSplit = document.getElementById('btn-batch-split');
+
+    this.btnShuffle = document.getElementById('btn-shuffle');
+    this.btnReverse = document.getElementById('btn-reverse');
+    this.btnShiftLeft = document.getElementById('btn-shift-left');
+    this.btnShiftRight = document.getElementById('btn-shift-right');
   }
 
   setupChips() {
@@ -124,14 +129,24 @@ export class PanelBuddyApp {
   }
 
   setupConnectorPalette() {
-    this.connectorPalette.innerHTML = '<span style="font-size:10px; font-weight:700; color:var(--osc-text-muted); margin-right:4px;">CAD CONNECTORS:</span>';
+    this.connectorPalette.innerHTML = '<span style="font-size:10px; font-weight:700; color:var(--osc-accent-primary); margin-right:4px;">🎯 DRAG & DROP ONTO PANEL:</span>';
 
     CAD_CONNECTOR_CATALOG.forEach(conn => {
       const btn = document.createElement('button');
       btn.className = 'conn-palette-btn';
       btn.dataset.connId = conn.id;
-      btn.title = `${conn.desc} (${conn.category})`;
+      btn.setAttribute('draggable', 'true');
+      btn.title = `Drag and drop onto panel, or click to apply: ${conn.desc} (${conn.category})`;
       btn.innerHTML = `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${conn.color};"></span><span>${conn.label}</span>`;
+      
+      btn.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('application/json', JSON.stringify({
+          type: 'CONNECTOR_PALETTE_ITEM',
+          connectorId: conn.id
+        }));
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+
       btn.addEventListener('click', () => {
         this.applyConnectorToSelected(conn.id);
       });
@@ -196,6 +211,11 @@ export class PanelBuddyApp {
     this.btnExportCsv?.addEventListener('click', () => this.exportCsv());
     this.btnExportSvg?.addEventListener('click', () => this.exportCadSvg());
     this.btnPrint?.addEventListener('click', () => window.print());
+
+    this.btnShuffle?.addEventListener('click', () => this.shufflePorts());
+    this.btnReverse?.addEventListener('click', () => this.reversePorts());
+    this.btnShiftLeft?.addEventListener('click', () => this.shiftPorts('left'));
+    this.btnShiftRight?.addEventListener('click', () => this.shiftPorts('right'));
   }
 
   loadInitialData() {
@@ -323,13 +343,57 @@ export class PanelBuddyApp {
 
     this.previewStage.innerHTML = svgContent;
 
-    // Attach click listeners to all CAD ports
+    // Attach interactive click and drag-and-drop listeners to all CAD ports
     this.previewStage.querySelectorAll('.cad-panel-port').forEach(el => {
-      el.addEventListener('click', (e) => {
+      el.addEventListener('click', () => {
         const idx = parseInt(el.dataset.portIndex, 10);
         if (!isNaN(idx)) {
           this.selectPort(idx);
         }
+      });
+
+      // Drag port to shuffle / swap positions
+      el.addEventListener('dragstart', (e) => {
+        const idx = parseInt(el.dataset.portIndex, 10);
+        e.dataTransfer.setData('application/json', JSON.stringify({
+          type: 'PANEL_PORT_DRAG',
+          fromIndex: idx
+        }));
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        el.classList.add('drag-over');
+      });
+
+      el.addEventListener('dragleave', () => {
+        el.classList.remove('drag-over');
+      });
+
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        const targetIdx = parseInt(el.dataset.portIndex, 10);
+        if (isNaN(targetIdx)) return;
+
+        try {
+          const payload = JSON.parse(e.dataTransfer.getData('application/json'));
+          if (payload.type === 'CONNECTOR_PALETTE_ITEM') {
+            // Drop connector from palette onto port
+            this.panel.ports[targetIdx].connector = payload.connectorId;
+            this.selectPort(targetIdx);
+            this.render();
+            this.bridge.notifyChanged();
+          } else if (payload.type === 'PANEL_PORT_DRAG') {
+            // Drag port onto another port to shuffle/swap positions
+            const fromIdx = payload.fromIndex;
+            if (fromIdx !== undefined && fromIdx !== targetIdx) {
+              this.swapOrMovePorts(fromIdx, targetIdx);
+            }
+          }
+        } catch (_) {}
       });
     });
   }
@@ -358,7 +422,45 @@ export class PanelBuddyApp {
 
     this.panel.ports.forEach((port, idx) => {
       const tr = document.createElement('tr');
+      tr.className = 'draggable-row';
+      tr.setAttribute('draggable', 'true');
+      tr.dataset.rowIdx = idx;
       if (this.selectedPortIndex === idx) tr.classList.add('selected');
+
+      tr.addEventListener('dragstart', (e) => {
+        tr.classList.add('dragging');
+        e.dataTransfer.setData('application/json', JSON.stringify({
+          type: 'PANEL_PORT_DRAG',
+          fromIndex: idx
+        }));
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      tr.addEventListener('dragend', () => {
+        tr.classList.remove('dragging');
+        this.portTableBody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
+      });
+
+      tr.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        tr.classList.add('drag-over');
+      });
+
+      tr.addEventListener('dragleave', () => {
+        tr.classList.remove('drag-over');
+      });
+
+      tr.addEventListener('drop', (e) => {
+        e.preventDefault();
+        tr.classList.remove('drag-over');
+        try {
+          const payload = JSON.parse(e.dataTransfer.getData('application/json'));
+          if (payload.type === 'PANEL_PORT_DRAG' && payload.fromIndex !== undefined && payload.fromIndex !== idx) {
+            this.swapOrMovePorts(payload.fromIndex, idx);
+          }
+        } catch (_) {}
+      });
 
       tr.addEventListener('click', (e) => {
         if (!['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName)) {
@@ -465,6 +567,49 @@ export class PanelBuddyApp {
     const h = isWp ? 'Standard Gang' : `${this.panel.rackUnits}U (${(this.panel.rackUnits * 44.45).toFixed(1)}mm)`;
     const count = this.panel.ports.length;
     this.geometrySummary.textContent = `${w} · ${h} · ${count} CAD Connectors`;
+  }
+
+  swapOrMovePorts(fromIdx, targetIdx) {
+    if (fromIdx === targetIdx || fromIdx < 0 || targetIdx < 0 || fromIdx >= this.panel.ports.length || targetIdx >= this.panel.ports.length) return;
+    const moved = this.panel.ports.splice(fromIdx, 1)[0];
+    this.panel.ports.splice(targetIdx, 0, moved);
+    this.panel.ports.forEach((p, i) => { p.portNumber = i + 1; });
+    this.selectPort(targetIdx);
+    this.render();
+    this.bridge.notifyChanged();
+  }
+
+  shufflePorts() {
+    if (this.panel.ports.length <= 1) return;
+    for (let i = this.panel.ports.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.panel.ports[i], this.panel.ports[j]] = [this.panel.ports[j], this.panel.ports[i]];
+    }
+    this.panel.ports.forEach((p, i) => { p.portNumber = i + 1; });
+    this.render();
+    this.bridge.notifyChanged();
+  }
+
+  reversePorts() {
+    if (this.panel.ports.length <= 1) return;
+    this.panel.ports.reverse();
+    this.panel.ports.forEach((p, i) => { p.portNumber = i + 1; });
+    this.render();
+    this.bridge.notifyChanged();
+  }
+
+  shiftPorts(direction) {
+    if (this.panel.ports.length <= 1) return;
+    if (direction === 'left') {
+      const first = this.panel.ports.shift();
+      this.panel.ports.push(first);
+    } else {
+      const last = this.panel.ports.pop();
+      this.panel.ports.unshift(last);
+    }
+    this.panel.ports.forEach((p, i) => { p.portNumber = i + 1; });
+    this.render();
+    this.bridge.notifyChanged();
   }
 
   saveBlock() {
