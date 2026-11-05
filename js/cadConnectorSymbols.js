@@ -2,127 +2,30 @@
 // MIT Licence. Free, for everyone, for ever. Full text in LICENSE at the root.
 // Authentic Vector Connector Icons Extracted Directly from EDITORS.CAD.Like.audio
 
-export const CAD_CONNECTOR_CATALOG = [
-  {
-    "id": "xlr-f",
-    "label": "XLR Female",
-    "desc": "Neutrik DLX 3-Pin XLR Female Socket",
-    "color": "#10B981",
-    "category": "Audio In"
-  },
-  {
-    "id": "xlr-m",
-    "label": "XLR Male",
-    "desc": "Neutrik DLX 3-Pin XLR Male Plug",
-    "color": "#38BDF8",
-    "category": "Audio Out"
-  },
-  {
-    "id": "bnc",
-    "label": "BNC Coax",
-    "desc": "75-Ohm SDI / Word Clock BNC Bulkhead",
-    "color": "#F59E0B",
-    "category": "Video/Clock"
-  },
-  {
-    "id": "ethercon",
-    "label": "EtherCON",
-    "desc": "Neutrik EtherCON Cat6A RJ45 Receptacle",
-    "color": "#38BDF8",
-    "category": "Dante/IP"
-  },
-  {
-    "id": "rj45",
-    "label": "RJ45 LAN",
-    "desc": "Shielded Cat6A RJ45 Modular Jack",
-    "color": "#38BDF8",
-    "category": "Network"
-  },
-  {
-    "id": "opticalcon",
-    "label": "OpticalCON",
-    "desc": "Neutrik OpticalCON DUO Shuttered Fiber",
-    "color": "#EC4899",
-    "category": "Fiber"
-  },
-  {
-    "id": "speakon",
-    "label": "SpeakON",
-    "desc": "Neutrik speakON 4-Pole Loudspeaker Jack",
-    "color": "#3B82F6",
-    "category": "Speaker"
-  },
-  {
-    "id": "trs",
-    "label": "1/4\" TRS",
-    "desc": "1/4-inch (6.35mm) Balanced Phone Jack",
-    "color": "#10B981",
-    "category": "Line/Headphones"
-  },
-  {
-    "id": "bantam-tt",
-    "label": "TT Bantam",
-    "desc": "4.4mm (0.173\") Balanced Bantam TT Jack",
-    "color": "#F59E0B",
-    "category": "Patchbay"
-  },
-  {
-    "id": "longframe",
-    "label": "Long Frame 1/4\"",
-    "desc": "Long-frame 0.25\" (6.35mm) B-gauge / PO-316 patch jack",
-    "color": "#FBBF24",
-    "category": "Patchbay"
-  },
-  {
-    "id": "video-midsize",
-    "label": "Video Midsize",
-    "desc": "75-Ohm midsize video patch jack (normalled, 12G-SDI)",
-    "color": "#F97316",
-    "category": "Video Patch"
-  },
-  {
-    "id": "video-mini",
-    "label": "Video Mini",
-    "desc": "75-Ohm mini / micro video patch jack (high density, 12G-SDI)",
-    "color": "#FB923C",
-    "category": "Video Patch"
-  },
-  {
-    "id": "hdmi",
-    "label": "HDMI 2.1",
-    "desc": "Feed-through HDMI Type A Receptacle",
-    "color": "#8B5CF6",
-    "category": "Video"
-  },
-  {
-    "id": "usbc",
-    "label": "USB-C",
-    "desc": "USB-C 3.2 Gen 2x2 Reversible Jack",
-    "color": "#6366F1",
-    "category": "Data/Power"
-  },
-  {
-    "id": "powercon",
-    "label": "PowerCON",
-    "desc": "Neutrik powerCON 20A Inlet (Blue)",
-    "color": "#EF4444",
-    "category": "AC Mains"
-  },
-  {
-    "id": "dsub25",
-    "label": "DB-25",
-    "desc": "D-Sub 25-Pin TASCAM Analog / AES59",
-    "color": "#14B8A6",
-    "category": "Multichannel"
-  },
-  {
-    "id": "blank",
-    "label": "Blank Plate",
-    "desc": "Cover plate for unused D-hole positions",
-    "color": "#52525b",
-    "category": "Cover"
-  }
-];
+import { VOCABULARY } from './vocabulary.js';
+
+/* The connectors this editor draws: one icon symbol each (below), tied by
+   abbreviation to the CAD catalogue (vendor/apk-vocabulary, ROAD-3501), which
+   gives the description, group, channels, cutout class and datasheet footprint.
+   The list, labels and colours are config data (config/vocabulary.json
+   symbols); only a symbol with no catalogue entry carries its own desc there. */
+const V = globalThis.APKVocabulary;
+export const CAD_CONNECTOR_CATALOG = (VOCABULARY.config.symbols || []).map((s) => {
+  const cad = s.abbreviation ? V.connector(s.abbreviation) : null;
+  if (s.abbreviation && !cad) console.warn(`[vocabulary] symbol ${s.id}: ${s.abbreviation} is not in the CAD catalogue`);
+  return {
+    id: s.id,
+    label: s.label,
+    color: s.color,
+    abbreviation: cad ? cad.abbreviation : null,
+    desc: cad ? cad.description : (s.desc || s.label),
+    category: cad ? cad.group : (s.category || ''),
+    channels: cad ? cad.channels : null,
+    cutout: cad ? cad.cutout : null,
+    ...(cad && cad.footprint ? { footprint: cad.footprint } : {}),
+  };
+});
+const BY_ABBREVIATION = new Map(CAD_CONNECTOR_CATALOG.filter(c => c.abbreviation).map(c => [c.abbreviation, c]));
 
 export const CAD_CONNECTOR_SYMBOLS_SVG = `
 <symbol id="cad-icon-xlr-f" viewBox="0 0 120 120"><defs>
@@ -563,6 +466,11 @@ export const CAD_CONNECTOR_SYMBOLS_SVG = `
 export const CAD_SYMBOLS_SVG_SHEET = CAD_CONNECTOR_SYMBOLS_SVG;
 
 export function getConnectorMeta(id) {
+  // A symbol's own id or label, then any spelling the catalogue (or this app's aliases) knows.
+  const own = CAD_CONNECTOR_CATALOG.find(c => c.id === id || c.label === id);
+  if (own) return own;
+  const cad = VOCABULARY.connectorFor(id);
+  if (cad && BY_ABBREVIATION.has(cad.abbreviation)) return BY_ABBREVIATION.get(cad.abbreviation);
   const clean = String(id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   if (clean.includes("longframe") || clean.includes("bgauge") || clean.includes("po316")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "longframe");
   if (clean.includes("videomini") || clean.includes("videomicro")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "video-mini");
@@ -583,21 +491,10 @@ export function getConnectorMeta(id) {
   return CAD_CONNECTOR_CATALOG.find(c => c.id === "blank") || CAD_CONNECTOR_CATALOG[0];
 }
 
-// PATCHBAYS take patchbay jacks and nothing else. A vendor model whose type is a
-// jackfield (Bantam / TT, long-frame Jack, Video) is limited to these; any other
-// hardware (Data, Termination Panel) keeps the whole catalogue.
-export const PATCHBAY_CONNECTORS = {
-  bantam: ['bantam-tt', 'longframe', 'video-midsize', 'video-mini', 'blank'],
-  jack: ['bantam-tt', 'longframe', 'video-midsize', 'video-mini', 'blank'],
-  video: ['bantam-tt', 'longframe', 'video-midsize', 'video-mini', 'blank'],
-};
-
-// The jack a fresh port of this patchbay type gets.
-export const PATCHBAY_DEFAULT = {
-  bantam: 'bantam-tt',
-  jack: 'longframe',
-  video: 'video-midsize',
-};
+// PATCHBAYS take patchbay jacks and nothing else: which symbols, and the jack a
+// fresh port gets, are config data (config/vocabulary.json patchbay).
+export const PATCHBAY_CONNECTORS = VOCABULARY.config.patchbay?.connectors || {};
+export const PATCHBAY_DEFAULT = VOCABULARY.config.patchbay?.default || {};
 
 export function patchbayKind(hardwareType) {
   const t = String(hardwareType || '').toLowerCase();
