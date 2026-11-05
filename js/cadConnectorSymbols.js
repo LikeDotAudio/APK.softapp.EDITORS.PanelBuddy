@@ -67,6 +67,27 @@ export const CAD_CONNECTOR_CATALOG = [
     "category": "Patchbay"
   },
   {
+    "id": "longframe",
+    "label": "Long Frame 1/4\"",
+    "desc": "Long-frame 0.25\" (6.35mm) B-gauge / PO-316 patch jack",
+    "color": "#FBBF24",
+    "category": "Patchbay"
+  },
+  {
+    "id": "video-midsize",
+    "label": "Video Midsize",
+    "desc": "75-Ohm midsize video patch jack (normalled, 12G-SDI)",
+    "color": "#F97316",
+    "category": "Video Patch"
+  },
+  {
+    "id": "video-mini",
+    "label": "Video Mini",
+    "desc": "75-Ohm mini / micro video patch jack (high density, 12G-SDI)",
+    "color": "#FB923C",
+    "category": "Video Patch"
+  },
+  {
     "id": "hdmi",
     "label": "HDMI 2.1",
     "desc": "Feed-through HDMI Type A Receptacle",
@@ -519,12 +540,33 @@ export const CAD_CONNECTOR_SYMBOLS_SVG = `
 <circle cx="24" cy="24" r="5" fill="#111" stroke="#52525b" stroke-width="1"/>
 <circle cx="96" cy="96" r="5" fill="#111" stroke="#52525b" stroke-width="1"/>
 <text x="60" y="64" text-anchor="middle" dominant-baseline="central" fill="#52525b" font-size="14" font-family="monospace" font-weight="bold">BLANK</text></symbol>
+<symbol id="cad-icon-longframe" viewBox="0 0 120 120">
+<circle cx="60" cy="60" r="54" fill="#27272a" stroke="#a1a1aa" stroke-width="4"/>
+<circle cx="60" cy="60" r="40" fill="#d4d4d8" stroke="#52525b" stroke-width="3"/>
+<circle cx="60" cy="60" r="22" fill="#09090b"/>
+<circle cx="60" cy="60" r="8" fill="#3f3f46"/>
+</symbol>
+<symbol id="cad-icon-video-midsize" viewBox="0 0 120 120">
+<rect x="10" y="10" width="100" height="100" rx="14" fill="#27272a" stroke="#f97316" stroke-width="4"/>
+<circle cx="60" cy="60" r="34" fill="#d4d4d8" stroke="#52525b" stroke-width="3"/>
+<circle cx="60" cy="60" r="18" fill="#09090b"/>
+<circle cx="60" cy="60" r="5" fill="#fbbf24"/>
+</symbol>
+<symbol id="cad-icon-video-mini" viewBox="0 0 120 120">
+<rect x="22" y="10" width="76" height="100" rx="12" fill="#27272a" stroke="#fb923c" stroke-width="4"/>
+<circle cx="60" cy="60" r="26" fill="#d4d4d8" stroke="#52525b" stroke-width="3"/>
+<circle cx="60" cy="60" r="13" fill="#09090b"/>
+<circle cx="60" cy="60" r="4" fill="#fbbf24"/>
+</symbol>
 `;
 
 export const CAD_SYMBOLS_SVG_SHEET = CAD_CONNECTOR_SYMBOLS_SVG;
 
 export function getConnectorMeta(id) {
   const clean = String(id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (clean.includes("longframe") || clean.includes("bgauge") || clean.includes("po316")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "longframe");
+  if (clean.includes("videomini") || clean.includes("videomicro")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "video-mini");
+  if (clean.includes("videomidsize") || clean.includes("videojack") || clean.includes("videopatch")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "video-midsize");
   if (clean.includes("xlrf") || clean === "xlrs" || clean === "xlr3s") return CAD_CONNECTOR_CATALOG.find(c => c.id === "xlr-f");
   if (clean.includes("xlrm") || clean === "xlrp" || clean === "xlr3p") return CAD_CONNECTOR_CATALOG.find(c => c.id === "xlr-m");
   if (clean.includes("bnc")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "bnc");
@@ -539,4 +581,35 @@ export function getConnectorMeta(id) {
   if (clean.includes("powercon") || clean.includes("pwr")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "powercon");
   if (clean.includes("dsub") || clean.includes("db25")) return CAD_CONNECTOR_CATALOG.find(c => c.id === "dsub25");
   return CAD_CONNECTOR_CATALOG.find(c => c.id === "blank") || CAD_CONNECTOR_CATALOG[0];
+}
+
+// PATCHBAYS take patchbay jacks and nothing else. A vendor model whose type is a
+// jackfield (Bantam / TT, long-frame Jack, Video) is limited to these; any other
+// hardware (Data, Termination Panel) keeps the whole catalogue.
+export const PATCHBAY_CONNECTORS = {
+  bantam: ['bantam-tt', 'longframe', 'video-midsize', 'video-mini', 'blank'],
+  jack: ['bantam-tt', 'longframe', 'video-midsize', 'video-mini', 'blank'],
+  video: ['bantam-tt', 'longframe', 'video-midsize', 'video-mini', 'blank'],
+};
+
+// The jack a fresh port of this patchbay type gets.
+export const PATCHBAY_DEFAULT = {
+  bantam: 'bantam-tt',
+  jack: 'longframe',
+  video: 'video-midsize',
+};
+
+export function patchbayKind(hardwareType) {
+  const t = String(hardwareType || '').toLowerCase();
+  if (t.includes('bantam') || t === 'tt') return 'bantam';
+  if (t.includes('video')) return 'video';
+  if (t.includes('jack') || t.includes('patchbay')) return 'jack';
+  return null;
+}
+
+export function connectorChoices(hardwareType) {
+  const kind = patchbayKind(hardwareType);
+  if (!kind) return CAD_CONNECTOR_CATALOG;
+  const ids = PATCHBAY_CONNECTORS[kind];
+  return ids.map(id => CAD_CONNECTOR_CATALOG.find(c => c.id === id)).filter(Boolean);
 }

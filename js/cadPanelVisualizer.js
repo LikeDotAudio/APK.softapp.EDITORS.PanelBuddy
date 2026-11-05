@@ -37,7 +37,7 @@ export function renderCadPanelSvg(panel, options = {}) {
   const hasBantamConn = ports.some(p => String(p.connector || '').toLowerCase().includes('bantam'));
   const hasTrsConn = ports.some(p => String(p.connector || '').toLowerCase().includes('trs') || String(p.connector || '').toLowerCase().includes('1/4'));
   const hasNormalling = ports.some(p => p.normalling || p.normalMode);
-  const isBantam = hwType.includes('bantam') || hasBantamConn || (hasNormalling && !hasTrsConn);
+  const isBantam = hwType.includes('bantam') || ((hasBantamConn || (hasNormalling && !hasTrsConn)) && !hwType.includes('video') && !hwType.includes('jack'));
   const isJack = (hwType.includes('jack') || hasTrsConn) && !isBantam;
   const isData = hwType.includes('data') || hwType.includes('keystone');
   const isVideo = hwType.includes('video');
@@ -111,7 +111,7 @@ export function renderCadPanelSvg(panel, options = {}) {
     svgParts.push(`<rect x="0" y="0" width="${rackWidthMm}" height="${rackHeightMm}" fill="#0d0e12" stroke="#2563eb" stroke-width="0.8"/>`);
     svgParts.push(`<rect x="${earWidthMm}" y="0" width="${usableWidthMm}" height="${rackHeightMm}" fill="none" stroke="#3b82f6" stroke-width="0.4" stroke-dasharray="3,2"/>`);
 
-    const typeDesc = isBantam ? 'TT BANTAM AUDIO JACKFIELD' : isJack ? '1/4" TRS JACKFIELD' : isData ? 'MODULAR RJ45 KEYSTONE' : isVideo ? '75Ω BNC VIDEO PATCH' : 'D-SERIES TERMINATION';
+    const typeDesc = isBantam ? 'TT BANTAM AUDIO JACKFIELD' : isJack ? 'LONG FRAME 1/4" JACKFIELD' : isData ? 'MODULAR RJ45 KEYSTONE' : isVideo ? '75Ω VIDEO PATCH JACKFIELD' : 'D-SERIES TERMINATION';
     svgParts.push(`<text x="24" y="6" fill="#38bdf8" font-size="3" font-family="monospace" font-weight="bold">FABRICATION BLUEPRINT: ${esc(panel.name || 'PATCH PANEL')} · ${ru}U EIA-310-D [${typeDesc}]</text>`);
     svgParts.push(`<text x="${rackWidthMm - 24}" y="6" fill="#64748b" font-size="2.4" text-anchor="end" font-family="monospace">PITCH: ${pitchMm.toFixed(2)}mm · DATUM X₀: ${datumMm.toFixed(2)}mm · BORE: Ø${isBantam ? '6.5' : isData ? '14.5x16' : '24.0'}mm</text>`);
 
@@ -121,8 +121,8 @@ export function renderCadPanelSvg(panel, options = {}) {
         const earX = side === -1 ? 7.95 : rackWidthMm - 7.95;
         for (let u = 0; u < ru; u++) {
           const uCenterY = u * 44.45 + 22.225;
-          svgParts.push(`<ellipse cx="${earX}" cy="${uCenterY - 15.875}" rx="3.5" ry="5" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
-          svgParts.push(`<ellipse cx="${earX}" cy="${uCenterY + 15.875}" rx="3.5" ry="5" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
+          svgParts.push(`<ellipse cx="${earX}" cy="${uCenterY - 15.875}" rx="4.75" ry="3.5" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
+          svgParts.push(`<ellipse cx="${earX}" cy="${uCenterY + 15.875}" rx="4.75" ry="3.5" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
           svgParts.push(`<line x1="${earX - 6}" y1="${uCenterY}" x2="${earX + 6}" y2="${uCenterY}" stroke="#64748b" stroke-width="0.2" stroke-dasharray="1,1"/>`);
         }
       });
@@ -204,9 +204,10 @@ export function renderCadPanelSvg(panel, options = {}) {
         for (let u = 0; u < ru; u++) {
           const uCenterY = u * 44.45 + 22.225;
           [uCenterY - 15.875, uCenterY + 15.875].forEach(slotY => {
-            svgParts.push(`<rect x="${earX - 3.5}" y="${slotY - 4.5}" width="7" height="9" rx="3.5" fill="#09090b" stroke="#3f3f46" stroke-width="0.8"/>`);
-            svgParts.push(`<circle cx="${earX}" cy="${slotY}" r="4.2" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.5"/>`);
-            svgParts.push(`<rect x="${earX - 2.8}" y="${slotY - 0.5}" width="5.6" height="1" fill="#18181b"/>`);
+            svgParts.push(`<rect x="${earX - 4.75}" y="${slotY - 3.5}" width="9.5" height="7" rx="3.5" fill="#09090b" stroke="#3f3f46" stroke-width="0.8"/>`);
+            svgParts.push(`<circle cx="${earX}" cy="${slotY}" r="3.2" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.5"/>`);
+            // Robertson (square-drive) recess — never a slotted/flat head
+            svgParts.push(`<rect x="${earX - 0.9}" y="${slotY - 0.9}" width="1.8" height="1.8" fill="#18181b" stroke="#0a0a0a" stroke-width="0.15"/>`);
           });
         }
       });
@@ -298,7 +299,7 @@ export function renderCadPanelSvg(panel, options = {}) {
       }
 
       const isSelected = selectedPortIndex === idx;
-      const defaultIcon = isBantam ? 'bantam-tt' : isJack ? 'trs' : isData ? 'ethercon' : isVideo ? 'bnc' : 'xlr-f';
+      const defaultIcon = isBantam ? 'bantam-tt' : isJack ? 'longframe' : isData ? 'ethercon' : isVideo ? 'video-midsize' : 'xlr-f';
       const connMeta = getConnectorMeta(port.connector || defaultIcon);
 
       const portNum = port.portNumber ?? (idx + 1);
@@ -351,7 +352,7 @@ export function renderCadPanelSvg(panel, options = {}) {
         const radius = isSelected ? 6.8 : 5.8;
         const filterAttr = isSelected ? 'filter="url(#cad_select_glow)"' : '';
         svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${radius}" fill="#3f3f46" stroke="${isSelected ? '#F4902C' : '#18181b'}" stroke-width="${isSelected ? 1.0 : 0.5}" ${filterAttr}/>`);
-        svgParts.push(`<use href="#cad-icon-trs" x="${cx - radius * 0.9}" y="${cy - radius * 0.9}" width="${radius * 1.8}" height="${radius * 1.8}"/>`);
+        svgParts.push(`<use href="#cad-icon-${['longframe', 'trs'].includes(connMeta.id) ? connMeta.id : 'longframe'}" x="${cx - radius * 0.9}" y="${cy - radius * 0.9}" width="${radius * 1.8}" height="${radius * 1.8}"/>`);
 
         // Normalling indicator between Row A and Row B for 1/4" bays
         if (r === 0 && numRows === 2) {
@@ -390,7 +391,7 @@ export function renderCadPanelSvg(panel, options = {}) {
 
         svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${radius}" fill="url(#cad_bnc_ring)" stroke="${isSelected ? '#F4902C' : '#18181b'}" stroke-width="${isSelected ? 1.1 : 0.6}" ${filterAttr}/>`);
         const iconSize = radius * 1.7;
-        svgParts.push(`<use href="#cad-icon-bnc" x="${cx - iconSize / 2}" y="${cy - iconSize / 2}" width="${iconSize}" height="${iconSize}"/>`);
+        svgParts.push(`<use href="#cad-icon-${String(connMeta.id).startsWith('video-') ? connMeta.id : 'video-midsize'}" x="${cx - iconSize / 2}" y="${cy - iconSize / 2}" width="${iconSize}" height="${iconSize}"/>`);
         svgParts.push(`<text x="${cx}" y="${cy - radius - 1.2}" fill="${isSelected ? '#F4902C' : '#a1a1aa'}" font-size="2" font-family="monospace" text-anchor="middle">${portNum}</text>`);
         svgParts.push(`<text x="${cx}" y="${cy + radius + 3.2}" fill="#f4f4f5" font-size="1.9" font-weight="bold" font-family="sans-serif" text-anchor="middle">${esc(label)}</text>`);
 
@@ -412,6 +413,10 @@ export function renderCadPanelSvg(panel, options = {}) {
         // D-Flange M3 Mounting Screws (top-left & bottom-right)
         svgParts.push(`<circle cx="${flangeX + 2.4}" cy="${flangeY + 2.4}" r="1.1" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.3"/>`);
         svgParts.push(`<circle cx="${flangeX + flangeW - 2.4}" cy="${flangeY + flangeH - 2.4}" r="1.1" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.3"/>`);
+        // Robertson square recesses on both flange screws
+        [[flangeX + 2.4, flangeY + 2.4], [flangeX + flangeW - 2.4, flangeY + flangeH - 2.4]].forEach(([sx, sy]) => {
+          svgParts.push(`<rect x="${sx - 0.35}" y="${sy - 0.35}" width="0.7" height="0.7" fill="#18181b"/>`);
+        });
 
         // Bore Hole
         const boreRadius = Math.min(flangeW, flangeH) * 0.42;
