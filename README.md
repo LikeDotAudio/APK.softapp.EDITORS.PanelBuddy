@@ -16,4 +16,5 @@ Design a 19″ rack panel, patchbay or wall plate to the millimetre, from any of
 CAD Faceplate · Drill Blueprint · Scribble Inserts · **Rear (Mirror)** · **All Views** (front, rear, drill, scribble stacked) · Label Maker (the 1:1 mechanical studio). Zoom with − / % / +, the wheel or a pinch; drag to pan.
 
 <!-- wiki:smoke -->
+**Smoke test** — ✅ PASS 3/3 since 2026-11-04 21:30 EST — [results](Documentation/%F0%9F%A7%A9Manual%20and%20Artifacts/SMOKE.md)
 <!-- /wiki:smoke -->
