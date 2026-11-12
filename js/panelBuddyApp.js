@@ -2,7 +2,7 @@
 // MIT Licence. Free, for everyone, for ever. Full text in LICENSE at the root.
 // Authentic 19-Inch EIA Rack Panel CAD Builder with True Vector Connectors
 
-import { getConnectorMeta, connectorChoices, patchbayKind, PATCHBAY_DEFAULT } from './cadConnectorSymbols.js';
+import { getConnectorMeta, connectorChoices, patchbayKind, PATCHBAY_DEFAULT, savedConnector } from './cadConnectorSymbols.js';
 import { LABEL_MECHANICAL_PRESETS } from './patchLabelGeometryEngine.js';
 import { modelToMechanicalPreset } from './patchPanelVendorCatalog.js';
 import { createPortTables } from './portTables.js';
@@ -358,7 +358,7 @@ export class PanelBuddyApp {
           label: p.topLabel || `CH ${p.ch || idx + 1}`,
           endpoint: p.topEndpoint || '',
           signal: p.topSignal || 'Analog Audio',
-          connector: p.connector || 'TT-Bantam',
+          connector: savedConnector(p.connector) || 'TT-Bantam',
           normalling: p.normalling || p.normalMode || 'half'
         });
       });
@@ -369,7 +369,7 @@ export class PanelBuddyApp {
           label: p.bottomLabel || `CH ${p.ch || idx + 1} (IN)`,
           endpoint: p.bottomEndpoint || '',
           signal: p.bottomSignal || 'Analog Audio',
-          connector: p.connector || 'TT-Bantam',
+          connector: savedConnector(p.connector) || 'TT-Bantam',
           normalling: p.normalling || p.normalMode || 'half'
         });
       });
@@ -379,7 +379,7 @@ export class PanelBuddyApp {
         label: p.label || p.portLabel || `P${idx + 1}`,
         endpoint: p.endpoint || p.destination || p.outputTo || '',
         signal: p.signal || 'Analog Audio',
-        connector: p.connector || 'XLR-F',
+        connector: savedConnector(p.connector) || 'XLR-F',
         normalling: p.normalling || p.normalMode || 'half',
       }));
     }
